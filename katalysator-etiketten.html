@@ -161,8 +161,17 @@ input,select,textarea{font:inherit;color:inherit}
   width:100%;min-height:40px;padding:9px 11px;
   border-radius:var(--radius-sm);border:1px solid var(--line-strong);
   background:var(--surface-2);color:var(--ink);
+  color-scheme:light dark;              /* native Datumsauswahl im Dark Mode */
   transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
 }
+/* Aufklappliste (Dropdown): die Optionen werden vom System gezeichnet, erben
+   aber ihre Farben von der Liste selbst. Ohne explizite Angabe blieb im Dark
+   Mode der Hintergrund dunkel und hover markierte die Zeile zusätzlich
+   dunkel/schwarz – die Schrift war dann nicht mehr lesbar. Deshalb hier
+   Hintergrund und Schriftfarbe fest setzen (und die Hover-Markierung des
+   Browsers nicht übersteuern). */
+select.input,select.select,select.textarea{color:var(--ink);background-color:var(--surface-2)}
+select option{background-color:var(--surface);color:var(--ink)}
 .input:hover,.select:hover,.textarea:hover{border-color:var(--ink-mute)}
 .input:focus,.select:focus,.textarea:focus{
   outline:none;background:var(--surface);
@@ -269,14 +278,17 @@ input,select,textarea{font:inherit;color:inherit}
 .label[data-index="1"]{left:0;top:148.5mm}
 /* linker Bereich (gut ein Drittel) mit 90 Grad gedrehter Beschriftung */
 .label__lefttext > span{display:block}   /* "Ausbau" / "Katalysator" untereinander */
+/* Titelspalte so schmal wie ihr Inhalt: „Ausbau“/„Katalysator“ stehen
+   zweizeilig (rund 24 mm), dadurch bleibt für den Datenblock mehr Breite.
+   Der Ausbaukatalysator darf die komplette Höhe des Etiketts einnehmen. */
 .label__left{
-  flex:0 0 26%;
+  flex:0 0 auto;                       /* Breite folgt dem Inhalt */
   height:100%;
   display:flex;align-items:center;justify-content:center;
   position:relative;
   padding:0;
   border-right:.5mm solid #000;
-  margin-right:6mm;                    /* Abstand Titelspalte -> Datenblock */
+  margin-right:5mm;                    /* Abstand Titelspalte -> Datenblock */
 }
 .label__lefttext{
   writing-mode:vertical-rl;
@@ -287,38 +299,85 @@ input,select,textarea{font:inherit;color:inherit}
   letter-spacing:.01em;
   white-space:normal;                  /* zweizeilig: "Ausbau" / "Katalysator" */
   text-align:center;
+  height:100%;                         /* füllt die Etikettenhöhe (max. 138,5 mm) */
+  max-height:100%;
+  display:flex;align-items:center;justify-content:center;
+  gap:3mm;
 }
-/* rechter Bereich */
+/* rechter Bereich: links die Datenspalte, rechts die GHS-Gruppe.
+   Die Datenspalte ist nur so breit wie ihr Inhalt (Katalysator < 15 Zeichen,
+   kurzes Datum), die GHS-Gruppe bekommt den Rest der Breite. Das Signalwort
+   liegt dadurch zwangsläufig in der GHS-Spalte unter den Rauten.
+   Die Empfängerbox sitzt in der zweiten Zeile direkt unter den Feldern. */
 .label__right{
   flex:1 1 auto;min-width:0;height:100%;
-  display:flex;flex-direction:column;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:
+    "fields ghs"
+    "recipient ghs";
+  align-items:start;
+  gap:2.4mm 4mm;
   padding:0;                          /* Rand kommt vom Etikett (5 mm) */
-  gap:3.4mm;
 }
-.lrow{display:flex;flex-direction:column;gap:.8mm;min-width:0}
+/* Felder: Katalysator, Ausbaudatum, aus Ofen, ex Produktion untereinander.
+   Die Spalte bleibt kompakt (rund 60–72 mm); die Zeilen sind nur so hoch
+   wie ihr Inhalt, deshalb stehen die Werte dicht beieinander. */
+.label__fields{
+  grid-area:fields;
+  min-width:0;
+  align-self:stretch;
+  display:flex;flex-direction:column;justify-content:flex-start;
+  gap:4.2mm;
+}
+/* Zeilen: Beschriftung oben, Wert darunter – jede Zeile so hoch wie ihr
+   Inhalt, die Werte stehen also kompakt beieinander. */
+.label__fields > .lrow{flex:0 0 auto}
+.lrow{display:flex;flex-direction:column;gap:1mm;min-width:0}
 .lrow__k{
-  font-size:2.8mm;line-height:1.1;font-weight:700;
+  font-size:3mm;line-height:1.1;font-weight:700;
   letter-spacing:.15em;text-transform:uppercase;color:#000;
 }
+/* Werte: linksbuendig, volle Feldbreite, Ziffern gleich breit (Datum/Charge
+   stehen dadurch ruhig untereinander). `--vmax` begrenzt die Breite je Feld. */
 .lrow__v{
-  font-size:7.2mm;line-height:1.16;font-weight:700;
-  border-bottom:.4mm solid #000;
-  padding-bottom:1mm;
-  min-height:8.4mm;
+  width:100%;max-width:var(--vmax, 72mm);
+  font-size:7.8mm;line-height:1.16;font-weight:700;
+  font-variant-numeric:tabular-nums;
+  border-bottom:.4mm solid;
+  border-bottom-color:currentColor;
+  padding-bottom:1.2mm;
   overflow-wrap:anywhere;
   hyphens:auto;
+  color:#000;
 }
-/* Datum: Zahl + Monat ohne Umbruch, kleiner als Hauptwert */
-.lrow__v[data-f="date"]{font-size:6.4mm;white-space:nowrap;overflow-wrap:normal}
-/* Ofen/Produktion: kurze Werte nicht umbrechen */
-.lrow__v[data-f="furnace"]{font-size:6.8mm;white-space:nowrap}
-.lrow--inline{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+/* Katalysator: kurz (unter 15 Zeichen) und einzeilig – der Name bleibt in
+   einer Zeile, die Zeile ist so breit wie der Text (Unterstrich darunter) */
+.lrow__v[data-f="catalyst"]{
+  width:min(max-content,100%);
+  max-width:100%;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.lrow__v[data-f="catalyst"]:empty{width:100%}
+/* Datum: Zahl + Monat ohne Umbruch, kompakt (rund 30 mm) */
+.lrow__v[data-f="date"]{width:auto;white-space:nowrap;max-width:34mm;font-size:6.6mm}
+/* Ofen: kurzer Code, nicht umbrechen */
+.lrow__v[data-f="furnace"]{width:auto;white-space:nowrap;max-width:40mm;font-size:7mm}
+/* ex Produktion: bis zu zwei Zeilen mit Umbruch */
+.lrow__v[data-f="production"]{max-width:72mm;max-height:20mm;overflow:hidden}
 
-/* GHS-Bereich: Rauten oben, Signalwort zentriert darunter */
+/* GHS-Bereich: Rauten oben, Signalwort zentriert darunter.
+   `--cell` wird aus der gewählten Rautengröße gesetzt: zwei Rauten passen
+   immer nebeneinander in die Spalte (3 Reihen x 2 Spalten), die Rauten werden
+   bei kleinerem Platz entsprechend kleiner. */
 .ghs{
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2.2mm;
-  margin:.6mm 0;
-  flex:0 0 auto;                /* kein Höhenwachstum, Restraum -> Spacer */
+  grid-area:ghs;
+  justify-self:end;
+  width:max-content;max-width:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2mm;
+  margin:.6mm 0 0;
 }
 .ghs__grid{
   flex:0 0 auto;
@@ -327,12 +386,12 @@ input,select,textarea{font:inherit;color:inherit}
   justify-items:center;align-items:center;
 }
 .ghs__slot{
-  display:block;width:var(--slot, 18mm);height:var(--slot, 18mm);
+  display:block;width:var(--cell, 18mm);height:var(--cell, 18mm);
 }
 
 .ghs__dia{
   display:block;padding:0;border:0;background:transparent;cursor:pointer;
-  width:var(--slot, 18mm);height:var(--slot, 18mm);
+  width:var(--cell, 18mm);height:var(--cell, 18mm);
   position:relative;z-index:1;
 }
 .ghs__dia:focus-visible{outline:none}
@@ -346,37 +405,44 @@ input,select,textarea{font:inherit;color:inherit}
    weiße Innenfläche selbst mit und endet exakt an der Kachelkante, dadurch
    gibt es keine durchscheinende Haarlinie zwischen benachbarten Rauten. */
 .ghs--empty{justify-content:flex-start}
+/* Signalwort: fester Rahmen unter den Rauten, darf nicht in die Rauten
+   wachsen (kein Überdecken mehr) */
 .ghs__signal{
   flex:0 0 auto;
   align-self:center;            /* immer mittig unter den Rauten */
   display:flex;align-items:center;justify-content:center;
   text-align:center;
-  padding:1.8mm 5mm;
+  padding:1.6mm 3.5mm;
   border:.9mm solid #000;
-  min-width:36mm;
-  min-height:15mm;
-  font-size:6mm;line-height:1.05;font-weight:800;letter-spacing:.01em;
+  min-width:0;
+  min-height:12mm;
+  max-width:100%;
+  font-size:5.6mm;line-height:1.05;font-weight:800;letter-spacing:.01em;
   white-space:nowrap;
+  overflow:hidden;
 }
 .ghs__signal[data-word=""]{border-style:dashed;border-width:.5mm}
-.ghs__signal-empty{font-size:2.8mm;font-weight:700;font-style:italic;letter-spacing:.02em}
-.ghs__empty{flex:1 1 auto;font-size:3.6mm;font-style:italic;color:#222;padding:2mm 0}
+.ghs__signal-empty{font-size:2.8mm;font-weight:700;font-style:italic;letter-spacing:.02em;white-space:normal}
+.ghs__empty{flex:0 0 auto;width:44mm;max-width:100%;text-align:center;
+  font-size:3.4mm;font-style:italic;line-height:1.25;color:#222;padding:2mm 0}
 
-/* Empfaenger-Box am unteren Etikettenrand: nur so breit wie noetig,
-   zentriert zwischen Trennlinie (linker Rand des Datenblocks) und Etikettenrand */
-.label__spacer{flex:1 1 auto;min-height:2mm}
+/* Empfaenger-Box: unten links, direkt unter den Feldern (volle Breite der
+   Datenspalte). Die GHS-Gruppe rechts bleibt davon unberuehrt. */
+.label__spacer{display:none}
 .recipient{
-  align-self:center;            /* horizontal mittig im Datenblock */
-  width:fit-content;
-  max-width:100%;
-  border:.5mm solid #000;
-  padding:2.8mm 3.2mm;
-  line-height:1.24;
+  grid-area:recipient;
+  justify-self:stretch;         /* = Breite der Felder/GHS-Spalte */
+  align-self:end;
+  border:.5mm solid;
+  border-color:currentColor;
+  padding:2.4mm 3mm;
+  line-height:1.22;
   text-align:center;
+  color:#000;
 }
 .recipient__k{font-size:2.8mm;line-height:1.1;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
-.recipient__org{font-size:7mm;font-weight:800;margin-top:1.2mm}
-.recipient__meta{font-size:6.2mm;font-weight:700;margin-top:.7mm;letter-spacing:.01em}
+.recipient__org{font-size:6.2mm;font-weight:800;margin-top:1.1mm;overflow-wrap:anywhere}
+.recipient__meta{font-size:5.4mm;font-weight:700;margin-top:.7mm;letter-spacing:.01em}
 .lrow__v.is-empty{color:#000;font-weight:600}
 
 
@@ -640,7 +706,6 @@ input,select,textarea{font:inherit;color:inherit}
             <select class="select" id="fFurnace" name="furnace"></select>
           </div>
         </div>
-
         <div class="field">
           <label class="field__label" for="fProduction">
             <span>ex Produktion</span>
@@ -686,12 +751,13 @@ input,select,textarea{font:inherit;color:inherit}
         <div class="label__lefttext" data-f="title"><span>Ausbau</span> <span>Katalysator</span></div>
       </div>
       <div class="label__right">
-        <div class="lrow">
-          <div class="lrow__k">Katalysator</div>
-          <div class="lrow__v" data-f="catalyst"></div>
-        </div>
-        <div class="lrow lrow--inline">
+        <!-- links: alle Felder untereinander (rechts der Trennlinie) -->
+        <div class="label__fields">
           <div class="lrow">
+            <div class="lrow__k">Katalysator</div>
+            <div class="lrow__v" data-f="catalyst"></div>
+          </div>
+          <div class="lrow lrow--date">
             <div class="lrow__k">Ausbaudatum</div>
             <div class="lrow__v" data-f="date"></div>
           </div>
@@ -699,13 +765,13 @@ input,select,textarea{font:inherit;color:inherit}
             <div class="lrow__k">aus Ofen</div>
             <div class="lrow__v" data-f="furnace"></div>
           </div>
+          <div class="lrow">
+            <div class="lrow__k">ex Produktion</div>
+            <div class="lrow__v" data-f="production"></div>
+          </div>
         </div>
-        <div class="lrow">
-          <div class="lrow__k">ex Produktion</div>
-          <div class="lrow__v" data-f="production"></div>
-        </div>
+        <!-- rechts: GHS-Gruppe mit Signalwort darunter, darunter die Empfängerbox -->
         <div class="ghs" data-f="ghs"></div>
-        <div class="label__spacer"></div>
         <div class="recipient">
           <div class="recipient__k">Zuständiger Betrieb:</div>
           <div class="recipient__org">Hydraminfabrik CIT/AH</div>
@@ -1026,20 +1092,26 @@ input,select,textarea{font:inherit;color:inherit}
     return markup;
   }
 
-  /* Raster-Layout der GHS-Rauten: 1-3 Reihe, 4 Raute, 5 Kreuz, 6 = 2x3 */
+  /* Raster-Layout der GHS-Rauten in der rechten Spalte: höchstens zwei Rauten
+     nebeneinander, damit die Gruppe neben den Feldern Platz hat.
+     1 = einzeln (mittig über zwei Spalten), 2 = eine Reihe, 3 = 1 + 2,
+     4 = 2 x 2, 5 = 2 + 2 + 1 (mittig), 6 = 3 Reihen x 2. */
   const GHS_LAYOUT = {
-    1: { cols: '1fr',                cells: [1] },
-    2: { cols: 'repeat(2, auto)',    cells: [1, 1] },
-    3: { cols: 'repeat(3, auto)',    cells: [1, 1, 1] },
-    4: { cols: 'repeat(2, auto)',    cells: [0, 1, 1, 0] },
-    5: { cols: 'repeat(3, auto)',    cells: [0, 1, 0, 1, 1, 1] },
-    6: { cols: 'repeat(3, auto)',    cells: [1, 1, 1, 1, 1, 1] }
+    1: { cols: 'repeat(2, auto)', cells: [1] },
+    2: { cols: 'repeat(2, auto)', cells: [1, 1] },
+    3: { cols: 'repeat(2, auto)', cells: [0, 1, 1, 1] },
+    4: { cols: 'repeat(2, auto)', cells: [1, 1, 1, 1] },
+    5: { cols: 'repeat(2, auto)', cells: [1, 1, 1, 1, 0, 1] },
+    6: { cols: 'repeat(2, auto)', cells: [1, 1, 1, 1, 1, 1] }
   };
+  /* Rautenkante in mm je Anzahl. Die Spalte ist rund 55 mm breit (zwei Rauten
+     + 1,4 mm Abstand), die Höhe über den Feldern reicht für drei Reihen. */
   const GHS_SIZES = {
-    horizontal: { single: 33, row3: 22 },
-    diamond4: { cell: 21 },
-    cross5: { cell: 19 },
-    grid6: { cell: 18 }
+    horizontal: { single: 38, row3: 27 },
+    diamond4: { cell: 27 },
+    cross5: { cell: 27 },
+    grid6: { cell: 26 },
+    empty: 24
   };
 
   /* ------------------------------------------------------------------
@@ -1248,22 +1320,23 @@ input,select,textarea{font:inherit;color:inherit}
      ------------------------------------------------------------------ */
   /* Liefert den Inhalt des GHS-Bereichs (Rauten-Grid + Signalwort) für 1..6
      Piktogramme. Der Container im Etikett (.ghs) bleibt bestehen, nur die
-     Variantenklasse wird gesetzt. */
+     Variantenklasse wird gesetzt; `cell` ist die Rautenkante in mm. */
   function ghsBlock(symbols, signal) {
     const list = (symbols || []).filter(function (k) { return GHS_BY_KEY.has(k); });
     const n = list.length;
     let grid = '<div class="ghs__empty">keine Piktogramme hinterlegt</div>';
     let sizeClass = 'ghs--empty';
+    let cell = GHS_SIZES.empty;
 
     if (n > 0) {
       const layout = GHS_LAYOUT[n] || GHS_LAYOUT[6];
-      const cell = n >= 6 ? GHS_SIZES.grid6.cell
+      cell = n >= 6 ? GHS_SIZES.grid6.cell
         : n === 5 ? GHS_SIZES.cross5.cell
         : n === 4 ? GHS_SIZES.diamond4.cell
         : (n === 1 ? GHS_SIZES.horizontal.single : GHS_SIZES.horizontal.row3);
       sizeClass = 'ghs--n' + n;
       let i = 0;
-      grid = '<div class="ghs__grid" style="--slot:' + cell + 'mm;grid-template-columns:' + layout.cols + '">' +
+      grid = '<div class="ghs__grid" style="--cell:' + cell + 'mm;grid-template-columns:' + layout.cols + '">' +
         layout.cells.map(function (used) {
           if (!used) return '<span class="ghs__slot" aria-hidden="true"></span>';
           const key = list[i]; i += 1;
@@ -1275,11 +1348,13 @@ input,select,textarea{font:inherit;color:inherit}
     }
 
     const word = normSignal(signal);
+    /* Signalwort steht immer unter den Piktogrammen, auch wenn keine Raute
+       gewaehlt ist – der leere Rahmen zeigt, dass hier nichts eingetragen ist. */
     const wordBox = '<div class="ghs__signal" data-word="' + (word ? esc(word) : '') + '">' +
       (word ? esc(word) : '<span class="ghs__signal-empty">kein Signalwort</span>') + '</div>';
 
-    /* Variantenklasse wird vom Aufrufer am Container gesetzt */
-    return { html: grid + wordBox, variant: sizeClass };
+    /* Variantenklasse + Rautenkante werden vom Aufrufer am Container gesetzt */
+    return { html: grid + wordBox, variant: sizeClass, cell: cell };
   }
 
   /* ------------------------------------------------------------------
@@ -1297,15 +1372,20 @@ input,select,textarea{font:inherit;color:inherit}
     const block = ghsBlock(profile ? profile.symbols : [], profile ? profile.signal : '');
 
     el.labels.forEach(function (label) {
+      const fields = label.querySelector('.label__fields') || label;
       label.querySelectorAll('[data-f]').forEach(function (node) {
         const key = node.getAttribute('data-f');
         if (key === 'ghs') {
           node.innerHTML = block.html;
           node.className = 'ghs ' + block.variant;
+          node.style.setProperty('--cell', block.cell + 'mm');
         } else if (key === 'title') {
           /* Titel steht fest im Template (zweizeilig) – nicht überschreiben */
           return;
         } else {
+          /* nur Werte innerhalb der Felder-Spalte (der Titel ist ebenfalls
+             ein [data-f], liegt aber in der linken Spalte) */
+          if (fields !== label && !fields.contains(node)) return;
           const text = values[key];
           node.textContent = text;
           node.classList.toggle('is-empty', text === '');
@@ -1330,6 +1410,7 @@ input,select,textarea{font:inherit;color:inherit}
 
   function render() {
     fillCatalystSelect();
+    fillFurnaceSelect();
     syncInputs();
     renderLabels();
     renderSummary();
@@ -1766,7 +1847,6 @@ input,select,textarea{font:inherit;color:inherit}
   /* ------------------------------------------------------------------
      10) START
      ------------------------------------------------------------------ */
-  fillFurnaceSelect();
   render();
   loadEntry(null);
   loadEntry(state.profiles.length ? state.form.catalystId : null);
