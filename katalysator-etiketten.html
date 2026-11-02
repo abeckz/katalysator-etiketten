@@ -200,10 +200,8 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 .summary__word[data-word="Gefahr"]{color:var(--danger)}
 .summary__word[data-word="Achtung"]{color:var(--warn)}
-.summary__word[data-word=""],.summary__word[data-word="-"]{color:var(--ink-mute);border-style:dashed}
-.summary__icons{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.summary__icons:empty{display:none}
-.summary__icons svg{width:34px;height:34px;display:block;background:#fff}
+.summary__word[data-word=""]{color:var(--ink-mute);border-style:dashed}
+.summary__word[data-word="none"]{color:var(--ink-mute);border-style:dashed}
 
 .save-status{
   display:flex;align-items:center;gap:8px;
@@ -537,17 +535,13 @@ select option{background-color:var(--surface);color:var(--ink)}
   font-size:11px;font-weight:900;line-height:1;color:var(--accent-ink);
   transition:background .12s ease, border-color .12s ease;
 }
-/* weiße Fläche unter dem Piktogramm: die Piktogramme sind schwarz und
-   sollen auch im Dark Mode auf Weiß stehen; die Raute selbst bringt
-   Rahmen + Innenfläche mit und ist damit überall gleich groß */
-/* Symbole sind schwarz gezeichnet und brauchen deshalb immer einen hellen
-   Grund – auch im Dark Mode, wo sie sonst kaum sichtbar wären. Die Rauten
-   im Etikett und in den Listen bringen Rahmen + weiße Innenfläche selbst mit
-   (ghsTile); die Kacheln des Editors brauchen eine eigene weiße Fläche. */
+/* Kachel im Editor: zeigt die fertige Raute (roter Rand + weiße Innenfläche)
+   wie im Etikett – `ghsTile` bringt beides mit, deshalb hier KEINE eigene
+   Fläche und kein zusätzliches Padding (sonst stünde die Raute doppelt
+   gerahmt in einem weißen Kästchen und der rote Rand wirkte zu klein). */
 .ghs-opt__dia{
-  display:block;width:44px;height:44px;padding:4px;
-  border-radius:8px;background:#fff;
-  box-sizing:content-box;
+  display:block;width:52px;height:52px;
+  background:none;
 }
 .ghs-opt__dia svg{display:block;width:100%;height:100%}
 .ghs-opt__name{
@@ -558,6 +552,9 @@ select option{background-color:var(--surface);color:var(--ink)}
 .ghs-opt.is-active .ghs-opt__box{background:var(--accent);border-color:var(--accent)}
 .ghs-opt:focus-visible{outline:3px solid color-mix(in srgb, var(--accent) 45%, transparent);outline-offset:2px}
 .ghs-opt[disabled]{cursor:not-allowed;opacity:.45}
+/* abgewählt: Symbol bleibt voll deckend sichtbar, nur leicht zurückgenommen –
+   die Raute soll in jedem Zustand wie im Etikett aussehen (roter Rand) */
+.ghs-opt:not(.is-active) .ghs-opt__dia{opacity:.85}
 .ghs-count{font-size:12px;color:var(--ink-mute);margin-top:9px}
 .ghs-count[data-full="true"]{color:var(--danger);font-weight:700}
 
@@ -738,7 +735,6 @@ select option{background-color:var(--surface);color:var(--ink)}
         <div class="summary__row">
           <span class="summary__word" id="sumWord" data-word="">–</span>
         </div>
-        <div class="summary__icons" id="sumIcons"></div>
       </div>
 
       <p class="save-status" id="saveStatus" data-kind="idle">
@@ -1031,7 +1027,6 @@ select option{background-color:var(--surface);color:var(--ink)}
   /* ------------------------------------------------------------------
      1b) GHS-DARSTELLUNG
      ------------------------------------------------------------------ */
-  const picCache = new Map();
   const tileCache = new Map();
 
   /* Einpassung der Symbole in den 579er-Rahmen (Rahmen-Innenkante
@@ -1047,7 +1042,10 @@ select option{background-color:var(--surface);color:var(--ink)}
     '0 0 919 919': { k: 579 / 919, cx: 289.38, cy: 289.38 },
     '0 0 5790 5790': { k: 579 / 5790, cx: 289.38, cy: 289.38 }
   };
-  /* s = Zielgröße in der Innenraute, mx/my = Symbolmitte im 579er-Raum */
+  /* s = Zielgröße in der Innenraute, mx/my = Symbolmitte im 579er-Raum.
+     Werte aus `node .build/ghs-fit-calc.js` (am Originalpfad gemessen).
+     `mx`/`my` positionieren das Symbol; `s` bleibt als gemessener
+     Referenzwert stehen (die Darstellung nutzt es nicht mehr, siehe unten). */
   const PIC_FIT = {
     explos:     { s: 1.266, mx: 290.61, my: 246.89 },
     flamme:     { s: 1.486, mx: 290.01, my: 267.00 },
@@ -1060,40 +1058,27 @@ select option{background-color:var(--surface);color:var(--ink)}
     pollu:      { s: 1.866, mx: 267.85, my: 248.64 }
   };
 
-  /* Glyphen in den 579er-Rahmen legen (Skalierung + Zentrierung).
+  /* Glyphen in den 579er-Rahmen legen (Lage auf die Rahmenmitte ziehen).
      Vorlagen mit eigener Raute (overlay) bleiben unverändert in ihrem
-     eigenen Koordinatenraum – sonst passten Rahmen und Symbol nicht. */
+     eigenen Koordinatenraum – sonst passten Rahmen und Symbol nicht.
+
+     Wichtig: `PIC_BOX.k` rechnet den Originalraum bereits auf 579 um – die
+     Glyphen kommen dadurch in Originalgröße in den Rahmen, und die weiße
+     Fläche der Raute deckt sie genau so ab wie in der Vorlage. Ein
+     zusätzliches Skalieren mit `s` würde das Symbol um bis zu 87 %
+     aufblasen, sodass es über den roten Rand hinausläuft (sichtbar als
+     „falsches Symbol ohne rotes Quadrat“). Deshalb hier nur verschieben. */
+  const FIT_CENTER = 289.38;
+
   function picGroup(key, sym) {
     const g = GHS_BY_KEY.get(key);
     if (!g) return '';
     if ((g.overlay || []).length) return sym;
     const b = PIC_BOX[g.viewBox] || PIC_BOX['0 0 579 579'];
     const f = PIC_FIT[key] || { s: 1, mx: b.cx, my: b.cy };
-    /* Symbol auf 579 bringen, auf Zielgröße skalieren und seine Mitte
-       (mx/my) auf die Rahmenmitte legen. */
-    return '<g transform="translate(289.38 289.38) scale(' + f.s + ') ' +
+    /* Symbol auf 579 bringen und seine Mitte (mx/my) auf die Rahmenmitte legen */
+    return '<g transform="translate(' + FIT_CENTER + ' ' + FIT_CENTER + ') ' +
       'translate(' + (-f.mx) + ' ' + (-f.my) + ') scale(' + b.k + ')">' + sym + '</g>';
-  }
-
-  /* Symbol ohne roten Rahmen (Vorschau der Auswahl im Editor). Der Rand ist
-     angeschnitten (-11,4 .. 590,4), damit die Antialiasing-Kante vom weißen
-     Kachelhintergrund verdeckt wird. Vorlagen mit eigener Raute (overlay)
-     behalten ihre Original-viewBox, sonst läge das Symbol außerhalb. */
-  const PIC_INSET = 11.4;
-  function picMarkup(key) {
-    if (picCache.has(key)) return picCache.get(key);
-    const g = GHS_BY_KEY.get(key);
-    if (!g) return '';
-    const parts = ghsParts(key);
-    const vb = parts.ownFrame
-      ? g.viewBox
-      : (-PIC_INSET) + ' ' + (-PIC_INSET) + ' ' +
-        (579 + 2 * PIC_INSET) + ' ' + (579 + 2 * PIC_INSET);
-    const markup = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '" ' +
-      'role="img" aria-label="' + esc(g.code + ' ' + g.name) + '" focusable="false">' +
-      picGroup(key, parts.sym) + '</svg>';
-    picCache.set(key, markup);
-    return markup;
   }
 
   /* Fertige Raute (Etikett, Zusammenfassung, Liste): Original-Raute
@@ -1269,7 +1254,6 @@ select option{background-color:var(--surface);color:var(--ink)}
     furnace: $('fFurnace'),
     production: $('fProduction'),
     sumWord: $('sumWord'),
-    sumIcons: $('sumIcons'),
     saveStatus: $('saveStatus'),
     saveStatusText: $('saveStatusText'),
     btnSave: $('btnSave'),
@@ -1491,18 +1475,13 @@ select option{background-color:var(--surface);color:var(--ink)}
   }
   window.addEventListener('resize', alignGhsMid);
 
+  /* Nur das Signalwort: die GHS-Piktogramme stehen im fertigen Etikett in der
+     Vorschau rechts und werden hier nicht zusätzlich gezeigt. */
   function renderSummary() {
     const profile = currentProfile();
-    const symbols = profile ? profile.symbols : [];
     const word = profile ? profile.signal : '';
     el.sumWord.textContent = word || 'kein Signalwort';
     el.sumWord.setAttribute('data-word', word || 'none');
-    el.sumIcons.innerHTML = symbols.length
-      ? symbols.map(function (k) {
-          const g = GHS_BY_KEY.get(k) || {};
-          return '<span class="summary__icon" title="' + esc((g.code || '') + ' ' + (g.name || '')) + '">' + ghsTile(k) + '</span>';
-        }).join('')
-      : '<span class="summary__none">Für diesen Katalysator sind keine Piktogramme hinterlegt.</span>';
   }
 
   function render() {
@@ -1552,7 +1531,7 @@ select option{background-color:var(--surface);color:var(--ink)}
       return '<button type="button" class="ghs-opt" role="checkbox" aria-checked="' + active +
         '" data-key="' + esc(g.key) + '" title="' + esc(g.name) + '">' +
         '<span class="ghs-opt__box" aria-hidden="true">' + (active ? '✓' : '') + '</span>' +
-        '<span class="ghs-opt__dia">' + picMarkup(g.key) + '</span>' +
+        '<span class="ghs-opt__dia">' + ghsTile(g.key) + '</span>' +
         '<span class="ghs-opt__name">' + esc(g.name) + '</span>' +
         '</button>';
     }).join('');

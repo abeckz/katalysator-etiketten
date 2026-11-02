@@ -37,12 +37,17 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   jeder Raute **undurchsichtig weiß** und der rote Rand sitzt exakt wie in
   der Vorlage – unabhängig vom `viewBox` (579 / 735 / 919 / 5790).
 * Darstellung der Rauten über `ghsTile()`: `ghsParts()` liefert Raute und
-  Symbol, `picGroup()` legt das Symbol maßstabsgerecht und mittig in die
-  Innenraute (50,94 … 527,82). `PIC_BOX` rechnet den `viewBox`-Raum der
-  Vorlage auf 579 um, `PIC_FIT` enthält Zielgröße (`s`) und Symbolmitte
-  (`mx`/`my`) je Piktogramm – die Originale sitzen unterschiedlich hoch und
-  groß in ihrer Fläche. Die Werte stammen aus `node .build/ghs-fit-calc.js`.
-  Vorlagen mit eigener Raute bleiben in ihrem Originalraum (`ownFrame`).
+  Symbol, `picGroup()` setzt das Symbol in die Innenraute (50,94 … 527,82).
+  `PIC_BOX.k` rechnet den `viewBox`-Raum der Vorlage auf 579 um (Originalgröße
+  bleibt erhalten) und `PIC_FIT` enthält die Symbolmitte (`mx`/`my`) je
+  Piktogramm – die Originale sitzen unterschiedlich hoch in ihrer Fläche.
+  Die Werte stammen aus `node .build/ghs-fit-calc.js`. Vorlagen mit eigener
+  Raute bleiben unverändert (`ownFrame`). Das Symbol wird bewusst **nicht**
+  auf die Innenraute aufgeblasen, sonst liefe es über den roten Rand hinaus.
+* Der Stammdateneditor zeigt in den GHS-Kacheln dieselbe fertige Raute
+  (`ghsTile`) wie Etikett und Liste – inklusive rotem Rand und weißer Fläche.
+* Das Panel „Etikettendaten“ zeigt zum gewählten Katalysator nur das
+  Signalwort; die Piktogramme stehen im fertigen Etikett in der Vorschau.
 
 ## Druck
 
