@@ -192,7 +192,6 @@ input,select,textarea{font:inherit;color:inherit}
 .summary__word[data-word="Gefahr"]{color:var(--danger)}
 .summary__word[data-word="Achtung"]{color:var(--warn)}
 .summary__word[data-word=""],.summary__word[data-word="-"]{color:var(--ink-mute);border-style:dashed}
-.summary__count{font-size:12.5px;color:var(--ink-soft);font-weight:600}
 .summary__icons{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .summary__icons:empty{display:none}
 .summary__icons svg{width:28px;height:28px;display:block}
@@ -211,19 +210,11 @@ input,select,textarea{font:inherit;color:inherit}
 .save-status[data-kind="error"] .save-status__dot{background:var(--danger)}
 .save-status[data-kind="dirty"]{color:var(--accent)}
 .save-status[data-kind="dirty"] .save-status__dot{background:var(--accent)}
-.storage-hint{
-  margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);
-  font-size:12px;line-height:1.5;
-  background:var(--surface-2);border:1px dashed var(--line-strong);color:var(--ink-soft);
-}
-.storage-hint strong{color:var(--ink)}
-.storage-hint.is-hidden{display:none}
 
 /* ---------------------------------------------------------------------------
    4) Vorschau-Fläche und A4-Blatt
    --------------------------------------------------------------------------- */
 .preview-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
-.preview-meta{font-size:12px;color:var(--ink-mute);text-align:center;line-height:1.5}
 .stage-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .sheet-stage{
   width:100%;display:grid;place-items:center;
@@ -277,6 +268,7 @@ input,select,textarea{font:inherit;color:inherit}
 .label[data-index="0"]{left:0;top:0}
 .label[data-index="1"]{left:0;top:148.5mm}
 /* linker Bereich (gut ein Drittel) mit 90 Grad gedrehter Beschriftung */
+.label__lefttext > span{display:block}   /* "Ausbau" / "Katalysator" untereinander */
 .label__left{
   flex:0 0 26%;
   height:100%;
@@ -288,12 +280,12 @@ input,select,textarea{font:inherit;color:inherit}
 }
 .label__lefttext{
   writing-mode:vertical-rl;
-  transform:rotate(180deg);            /* liest von unten nach oben */
+  transform:rotate(180deg);            /* 90° nach links, liest von unten nach oben */
   font-size:11.5mm;
-  line-height:1;
+  line-height:1.04;
   font-weight:800;
   letter-spacing:.01em;
-  white-space:nowrap;
+  white-space:normal;                  /* zweizeilig: "Ausbau" / "Katalysator" */
   text-align:center;
 }
 /* rechter Bereich */
@@ -322,9 +314,9 @@ input,select,textarea{font:inherit;color:inherit}
 .lrow__v[data-f="furnace"]{font-size:6.8mm;white-space:nowrap}
 .lrow--inline{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
 
-/* GHS-Bereich: Rauten links, Signalwort-Kasten rechts */
+/* GHS-Bereich: Rauten oben, Signalwort zentriert darunter */
 .ghs{
-  display:flex;align-items:center;justify-content:space-between;gap:2.5mm;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2.2mm;
   margin:.6mm 0;
   flex:0 0 auto;                /* kein Höhenwachstum, Restraum -> Spacer */
 }
@@ -343,10 +335,10 @@ input,select,textarea{font:inherit;color:inherit}
 .ghs--empty{justify-content:flex-start}
 .ghs__signal{
   flex:0 0 auto;
-  margin-left:auto;
+  align-self:center;            /* immer mittig unter den Rauten */
   display:flex;align-items:center;justify-content:center;
   text-align:center;
-  padding:2.4mm 4mm;
+  padding:1.8mm 5mm;
   border:.9mm solid #000;
   min-width:36mm;
   min-height:15mm;
@@ -357,12 +349,17 @@ input,select,textarea{font:inherit;color:inherit}
 .ghs__signal-empty{font-size:2.8mm;font-weight:700;font-style:italic;letter-spacing:.02em}
 .ghs__empty{flex:1 1 auto;font-size:3.6mm;font-style:italic;color:#222;padding:2mm 0}
 
-/* Empfaenger-Box am unteren Etikettenrand */
+/* Empfaenger-Box am unteren Etikettenrand: nur so breit wie noetig,
+   zentriert zwischen Trennlinie (linker Rand des Datenblocks) und Etikettenrand */
 .label__spacer{flex:1 1 auto;min-height:2mm}
 .recipient{
+  align-self:center;            /* horizontal mittig im Datenblock */
+  width:fit-content;
+  max-width:100%;
   border:.5mm solid #000;
   padding:2.8mm 3.2mm;
   line-height:1.24;
+  text-align:center;
 }
 .recipient__k{font-size:2.8mm;line-height:1.1;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
 .recipient__org{font-size:7mm;font-weight:800;margin-top:1.2mm}
@@ -418,33 +415,43 @@ input,select,textarea{font:inherit;color:inherit}
 .card__title{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:12px}
 .card__title.mt{margin-top:18px}
 
-.ghs-picker{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px}
+/* GHS-Auswahl: Liste mit Raute, GHS-Code, Klartextname und Checkbox */
+.ghs-picker{display:flex;flex-direction:column;gap:6px}
 .ghs-opt{
-  position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:6px 4px 5px;border-radius:10px;
+  display:grid;
+  grid-template-columns:18px 30px minmax(0,1fr) auto;
+  align-items:center;gap:10px;
+  padding:7px 10px;
+  border-radius:9px;
   border:1.5px solid var(--line);
   background:var(--surface);
   cursor:pointer;
-  transition:border-color .12s ease, background .12s ease, box-shadow .12s ease;
+  text-align:left;
+  transition:border-color .12s ease, background .12s ease;
 }
 .ghs-opt:hover:not([disabled]){border-color:var(--line-strong)}
-.ghs-opt__dia{display:block;width:34px;height:34px}
-.ghs-opt__dia svg{display:block;width:100%;height:100%}
-.ghs-opt__code{font-size:10px;font-weight:800;letter-spacing:.03em;color:var(--ink-soft)}
-.ghs-opt__name{font-size:10px;line-height:1.15;text-align:center;color:var(--ink-mute);font-weight:600}
-.ghs-opt__check{
-  position:absolute;top:-6px;right:-6px;
-  width:18px;height:18px;border-radius:50%;
+.ghs-opt__box{
+  width:18px;height:18px;border-radius:4px;
+  border:2px solid var(--line-strong);
+  background:var(--surface);
   display:grid;place-items:center;
-  background:var(--accent);color:var(--accent-ink);
-  font-size:11px;font-weight:800;line-height:1;
-  opacity:0;transform:scale(.6);transition:opacity .12s ease, transform .12s ease;
+  font-size:12px;font-weight:900;line-height:1;color:var(--accent-ink);
+  transition:background .12s ease, border-color .12s ease;
 }
-.ghs-opt.is-active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent)}
-.ghs-opt.is-active .ghs-opt__name,.ghs-opt.is-active .ghs-opt__code{color:var(--ink)}
-.ghs-opt.is-active .ghs-opt__check{opacity:1;transform:scale(1)}
+.ghs-opt__dia{display:block;width:30px;height:30px}
+.ghs-opt__dia svg{display:block;width:100%;height:100%}
+.ghs-opt__text{min-width:0;display:flex;flex-direction:column;gap:1px}
+.ghs-opt__name{font-size:13px;line-height:1.2;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ghs-opt__code{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-mute)}
+.ghs-opt__state{
+  font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-mute);
+}
+.ghs-opt.is-active{border-color:var(--accent);background:var(--accent-soft)}
+.ghs-opt.is-active .ghs-opt__box{background:var(--accent);border-color:var(--accent)}
+.ghs-opt.is-active .ghs-opt__state{color:var(--ink)}
 .ghs-opt:focus-visible{outline:3px solid color-mix(in srgb, var(--accent) 45%, transparent);outline-offset:2px}
-.ghs-opt[disabled]{cursor:not-allowed;opacity:.4}
+.ghs-opt[disabled]{cursor:not-allowed;opacity:.45}
 .ghs-count{font-size:12px;color:var(--ink-mute);margin-top:9px}
 .ghs-count[data-full="true"]{color:var(--danger);font-weight:700}
 
@@ -521,7 +528,7 @@ input,select,textarea{font:inherit;color:inherit}
     print-color-adjust:exact!important;
   }
   /* Bedienoberflaeche vollstaendig ausblenden */
-  .app-bar,.toast,.modal,.preview-meta,.stage-tools,.no-print{display:none!important}
+  .app-bar,.toast,.modal,.stage-tools,.no-print{display:none!important}
   .workspace{display:block!important;max-width:none!important;margin:0!important;padding:0!important}
   .panel{display:none!important}
   .preview-wrap,.sheet-stage{display:block!important;padding:0!important;margin:0!important;border:0!important;background:none!important;overflow:visible!important}
@@ -592,7 +599,6 @@ input,select,textarea{font:inherit;color:inherit}
   <section class="panel no-print" aria-labelledby="formTitle">
     <div class="panel__head">
       <h1 class="panel__title" id="formTitle">Etikettendaten</h1>
-      <span class="field__hint">beide Etiketten live</span>
     </div>
     <div class="panel__body">
       <form id="labelForm" autocomplete="off" novalidate>
@@ -618,16 +624,14 @@ input,select,textarea{font:inherit;color:inherit}
         <div class="field">
           <label class="field__label" for="fProduction">
             <span>ex Produktion</span>
-            <span class="field__hint">Freitext, z. B. Charge</span>
           </label>
-          <input class="input" type="text" id="fProduction" name="production" maxlength="60" placeholder="z. B. Charge 24/0417">
+          <input class="input" type="text" id="fProduction" name="production" maxlength="60">
         </div>
       </form>
 
       <div class="summary" aria-live="polite">
         <div class="summary__row">
           <span class="summary__word" id="sumWord" data-word="">–</span>
-          <span class="summary__count" id="sumCount">0 von 6 GHS-Piktogrammen</span>
         </div>
         <div class="summary__icons" id="sumIcons"></div>
       </div>
@@ -636,11 +640,6 @@ input,select,textarea{font:inherit;color:inherit}
         <span class="save-status__dot" aria-hidden="true"></span>
         <span id="saveStatusText">Bereit – Änderungen werden in dieser Datei gespeichert.</span>
       </p>
-      <p class="storage-hint" id="storageHint">
-        <strong>Selbst-Speichern:</strong> Über <em>Speichern</em> wird diese HTML-Datei direkt überschrieben
-        (Chrome/Edge). Ohne Schreibzugriff liegen die Daten im Browser (localStorage) und können über
-        <em>Speichern</em> als neue Datei abgelegt werden.
-      </p>
     </div>
   </section>
 
@@ -648,11 +647,6 @@ input,select,textarea{font:inherit;color:inherit}
        VORSCHAU = DRUCKANSICHT
        ======================================================================== -->
   <section class="preview-wrap" aria-label="Druckvorschau">
-    <div class="preview-meta no-print">
-      Vorschau A4 · 2 × DIN A5 (je 148,5 × 210 mm) · 5 mm Rand je Etikett<br>
-      Drucken: A4 Hochformat, Skalierung <strong>100 %</strong>, Ränder <strong>keine</strong>
-    </div>
-
     <div class="sheet-stage">
       <div class="sheet-fit" id="sheetFit">
         <div class="sheet" id="sheet">
@@ -669,7 +663,7 @@ input,select,textarea{font:inherit;color:inherit}
   <template id="labelTemplate">
     <article class="label" data-label role="group">
       <div class="label__left">
-        <div class="label__lefttext" data-f="title">Ausbau Katalysator</div>
+        <div class="label__lefttext" data-f="title"><span>Ausbau</span> <span>Katalysator</span></div>
       </div>
       <div class="label__right">
         <div class="lrow">
@@ -710,7 +704,6 @@ input,select,textarea{font:inherit;color:inherit}
     <div class="modal__head">
       <div>
         <h2 class="modal__title" id="editorTitle">Stammdateneditor</h2>
-        <p class="modal__sub">Katalysatoren und ihre Gefahrenprofile (Signalwort + bis zu 6 GHS-Piktogramme)</p>
       </div>
       <button class="btn btn--icon modal__close" id="btnCloseEditor" type="button" title="Schließen" aria-label="Editor schließen">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -723,8 +716,8 @@ input,select,textarea{font:inherit;color:inherit}
         <h3 class="card__title" id="entryFormTitle">Neuer Katalysator</h3>
 
         <div class="field">
-          <label class="field__label" for="eName"><span>Name</span><span class="field__hint">Pflichtfeld</span></label>
-          <input class="input" type="text" id="eName" name="name" maxlength="48" placeholder="z. B. Kat. 4 – Cu/ZnO" required>
+          <label class="field__label" for="eName"><span>Name</span></label>
+          <input class="input" type="text" id="eName" name="name" maxlength="48" required>
         </div>
 
         <div class="field">
@@ -742,7 +735,6 @@ input,select,textarea{font:inherit;color:inherit}
             <span class="field__hint" id="eCount">0 / 6</span>
           </div>
           <div class="ghs-picker" id="ePicker" role="group" aria-label="GHS-Piktogramme auswählen"></div>
-          <p class="ghs-count" id="eCountHint">Maximal 6 Piktogramme – weitere werden nach Erreichen des Limits gesperrt.</p>
         </div>
 
         <div class="flags" id="entryFlags"></div>
@@ -1063,7 +1055,6 @@ input,select,textarea{font:inherit;color:inherit}
     furnace: $('fFurnace'),
     production: $('fProduction'),
     sumWord: $('sumWord'),
-    sumCount: $('sumCount'),
     sumIcons: $('sumIcons'),
     saveStatus: $('saveStatus'),
     saveStatusText: $('saveStatusText'),
@@ -1186,7 +1177,8 @@ input,select,textarea{font:inherit;color:inherit}
           node.innerHTML = block.html;
           node.className = 'ghs ' + block.variant;
         } else if (key === 'title') {
-          node.textContent = 'Ausbau Katalysator';
+          /* Titel steht fest im Template (zweizeilig) – nicht überschreiben */
+          return;
         } else {
           const text = values[key];
           node.textContent = text;
@@ -1202,7 +1194,6 @@ input,select,textarea{font:inherit;color:inherit}
     const word = profile ? profile.signal : '';
     el.sumWord.textContent = word || 'kein Signalwort';
     el.sumWord.setAttribute('data-word', word || 'none');
-    el.sumCount.textContent = symbols.length + ' von 6 GHS-Piktogrammen';
     el.sumIcons.innerHTML = symbols.length
       ? symbols.map(function (k) {
           const g = GHS_BY_KEY.get(k);
@@ -1252,11 +1243,14 @@ input,select,textarea{font:inherit;color:inherit}
     el.ePicker.innerHTML = GHS.map(function (g) {
       const active = state.draftSymbols.indexOf(g.key) >= 0;
       return '<button type="button" class="ghs-opt" role="checkbox" aria-checked="' + active +
-        '" data-key="' + esc(g.key) + '" title="' + esc(g.code + ' ' + g.name) + '">' +
+        '" data-key="' + esc(g.key) + '" title="' + esc(g.code + ' – ' + g.name) + '">' +
+        '<span class="ghs-opt__box" aria-hidden="true">' + (active ? '✓' : '') + '</span>' +
         '<span class="ghs-opt__dia">' + ghsMarkup(g.key) + '</span>' +
-        '<span class="ghs-opt__code">' + esc(g.code) + '</span>' +
-        '<span class="ghs-opt__name">' + esc(g.short) + '</span>' +
-        '<span class="ghs-opt__check" aria-hidden="true">S</span>' +
+        '<span class="ghs-opt__text">' +
+          '<span class="ghs-opt__name">' + esc(g.name) + '</span>' +
+          '<span class="ghs-opt__code">' + esc(g.code) + '</span>' +
+        '</span>' +
+        '<span class="ghs-opt__state" data-state></span>' +
         '</button>';
     }).join('');
     updatePickerState();
@@ -1273,6 +1267,10 @@ input,select,textarea{font:inherit;color:inherit}
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-checked', String(active));
       btn.disabled = !active && full;
+      const box = btn.querySelector('.ghs-opt__box');
+      if (box) box.textContent = active ? '✓' : '';
+      const st = btn.querySelector('[data-state]');
+      if (st) st.textContent = active ? 'gewählt' : 'wählen';
     });
     if (full) setFlag('warn', 'Maximal 6 Piktogramme erreicht.');
     else if (el.entryFlags.querySelector('.flag--warn')) setFlag('', '');
@@ -1395,9 +1393,9 @@ input,select,textarea{font:inherit;color:inherit}
     state.dirty = true;
     writeLocal();
     if (state.fileWritable) {
-      setStatus('dirty', 'Ungespeicherte nderungen  ~Speichern" schreibt in die HTML-Datei.');
+      setStatus('dirty', 'Ungespeicherte Änderungen – „Speichern“ schreibt in die HTML-Datei.');
     } else {
-      setStatus('dirty', 'Ungespeicherte nderungen  im Browser gesichert.');
+      setStatus('dirty', 'Ungespeicherte Änderungen – im Browser gesichert.');
     }
   }
 
@@ -1409,7 +1407,7 @@ input,select,textarea{font:inherit;color:inherit}
   }
 
   /* Erzeugt das vollständige HTML mit aktuellem Datenblock.
-     Grundlage ist das live geladene Markup (DOM), damit alle nderungen
+     Grundlage ist das live geladene Markup (DOM), damit alle Änderungen
      am Quelltext erhalten bleiben. */
   function buildExportHtml() {
     const dataNode = document.getElementById('embedded-data');
@@ -1456,7 +1454,7 @@ input,select,textarea{font:inherit;color:inherit}
           await writeToHandle(state.fileHandle, html);
           state.dirty = false;
           setStatus('saved', 'In die HTML-Datei gespeichert (' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr).');
-          showToast('nderungen in die HTML-Datei geschrieben.', 'ok');
+        showToast('Änderungen in die HTML-Datei geschrieben.', 'ok');
           return;
         }
       } catch (err) {
@@ -1475,11 +1473,11 @@ input,select,textarea{font:inherit;color:inherit}
         state.fileHandle = handle;
         state.fileWritable = true;
         state.dirty = false;
-        setStatus('saved', 'Gespeichert als ~' + handle.name + '"  weitere nderungen schreiben direkt dorthin.');
-        showToast('Datei gespeichert. Weitere nderungen gehen direkt in diese Datei.', 'ok');
+        setStatus('saved', 'Gespeichert als „' + handle.name + '“ – weitere Änderungen schreiben direkt dorthin.');
+        showToast('Datei gespeichert. Weitere Änderungen gehen direkt in diese Datei.', 'ok');
       } catch (err) {
         if (err && err.name === 'AbortError') {
-          setStatus(state.dirty ? 'dirty' : 'idle', 'Speichern abgebrochen  nderungen bleiben im Browser gesichert.');
+          setStatus(state.dirty ? 'dirty' : 'idle', 'Speichern abgebrochen – Änderungen bleiben im Browser gesichert.');
           return;
         }
         downloadFallback(html);
@@ -1503,10 +1501,10 @@ input,select,textarea{font:inherit;color:inherit}
       document.body.removeChild(a);
       window.setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
       state.dirty = false;
-      setStatus('saved', 'Datei heruntergeladen  bitte die bisherige HTML-Datei damit ersetzen.');
+      setStatus('saved', 'Datei heruntergeladen – bitte die bisherige HTML-Datei damit ersetzen.');
       showToast('Datei heruntergeladen. Zum Selbst-Speichern heruntergeladene Datei anstelle der alten ablegen.', 'warn');
     } catch (err) {
-      setStatus('error', 'Speichern fehlgeschlagen  nderungen bleiben nur im Browser.');
+      setStatus('error', 'Speichern fehlgeschlagen – Änderungen bleiben nur im Browser.');
       showToast('Speichern nicht möglich.', 'error');
     }
   }
@@ -1640,19 +1638,13 @@ input,select,textarea{font:inherit;color:inherit}
 
   if (state.needsEmbedSeed) {
     writeLocal();
-    setStatus('idle', 'Bereit  Startdaten aktiv. Mit ~Speichern" werden sie dauerhaft in die HTML-Datei geschrieben.');
+    setStatus('idle', 'Bereit – Startdaten aktiv. Mit „Speichern“ werden sie dauerhaft in die HTML-Datei geschrieben.');
   } else if (local && local.savedAt) {
-    setStatus('idle', 'Bereit  Datenbestand aus dieser HTML-Datei geladen.');
+    setStatus('idle', 'Bereit – Datenbestand aus dieser HTML-Datei geladen.');
   } else {
-    setStatus('idle', 'Bereit  nderungen werden in dieser Datei gespeichert.');
+    setStatus('idle', 'Bereit – Änderungen werden in dieser Datei gespeichert.');
   }
   el.saveStatus.setAttribute('data-file', supportsFileApi() ? 'yes' : 'no');
-  if (!supportsFileApi()) {
-    document.getElementById('storageHint').innerHTML =
-      '<strong>Hinweis:</strong> Dieser Browser kann Dateien nicht direkt überschreiben. ' +
-      '~Speichern" lädt die aktualisierte HTML-Datei herunter  bitte anstelle der bisherigen Datei ablegen. ' +
-      'In Chrome oder Edge (geöffnet per <em>file://</em> oder <em>https</em>) schreibt ~Speichern" direkt in diese Datei.';
-  }
 })();
 </script>
 </body>
