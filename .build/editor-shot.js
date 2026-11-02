@@ -1,6 +1,6 @@
 /*
  * Screenshot des Stammdateneditors (für die visuelle Abnahme).
- *   node .build/editor-shot.js
+ *   node .build/editor-shot.js [dark]
  */
 const fs = require('fs');
 const path = require('path');
@@ -11,9 +11,13 @@ const src = path.join(root, 'katalysator-etiketten.html');
 const chrome = ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].find((p) => fs.existsSync(p));
 
+const theme = process.argv[2] === 'dark' ? 'dark' : '';
+const name = theme ? 'editor-dark' : 'editor';
+
 const probe = [
     '<script>',
     'window.addEventListener("load", function () {',
+    theme ? '  document.documentElement.setAttribute("data-theme", "' + theme + '");' : '',
     '  setTimeout(function () {',
     '    document.getElementById("btnSettings").click();',
     '    var o = document.querySelector(".ghs-opt");',
@@ -30,7 +34,7 @@ fs.writeFileSync(tmp, html, 'utf8');
 
 execFileSync(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars',
     '--virtual-time-budget=4000', '--window-size=1280,1000',
-    '--screenshot=' + path.join(__dirname, 'out', 'editor.png'),
+    '--screenshot=' + path.join(__dirname, 'out', name + '.png'),
     'file:///' + tmp.replace(/\\/g, '/')], { encoding: 'utf8' });
 
-console.log('OK  .build/out/editor.png');
+console.log('OK  .build/out/' + name + '.png');

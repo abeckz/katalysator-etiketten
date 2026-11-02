@@ -1,6 +1,12 @@
 # Build-Artefakte der Prüfskripte (Screenshots, PDF, DOM-Dumps, Backups)
 .build/out/
 
+# Original-Download der GHS-Vorlagen (identisch mit .ghs/, nur Arbeitskopie)
+.ghs-official/
+
+# Automatisch erzeugte Platzhalter-Dateien der Prüfskripte
+.build/tmp-*.txt
+
 # Betriebssystem / Editor
 Thumbs.db
 Desktop.ini

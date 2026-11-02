@@ -26,8 +26,23 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   Signalwort, Empfängerbox. 5 mm Rand je Etikett.
 * Die Etiketten werden aus `<template id="labelTemplate">` geklont
   (`buildLabels()` im Skript), damit Markup nur einmal gepflegt wird.
-* GHS-Piktogramme sind als Pfaddaten eingebettet (9 Symbole, GHS01–GHS09),
-  Rahmengeometrie je Ursprungs-`viewBox` (579/735/919).
+* GHS-Piktogramme sind die **offiziellen UNECE-Vorlagen** (Wikimedia-Commons-
+  Dateien `GHS-pictogram-*.svg`, gemeinfrei) und als Pfaddaten eingebettet
+  (9 Symbole, GHS01–GHS09). Quelle: `.ghs/` (die Arbeitskopie der Downloads
+  liegt lokal in `.ghs-official/` und wird nicht versioniert).
+* Je Piktogramm liegen in der App zwei Felder:
+  * `paths` – das Symbol (deckend schwarz, `#000`)
+  * `overlay` – die Raute aus derselben Vorlage (deckendes Weiß + roter Rand)
+  Beides stammt zeichengenau aus dem Original. Dadurch ist der Hintergrund
+  jeder Raute **undurchsichtig weiß** und der rote Rand sitzt exakt wie in
+  der Vorlage – unabhängig vom `viewBox` (579 / 735 / 919 / 5790).
+* Darstellung der Rauten über `ghsTile()`: `ghsParts()` liefert Raute und
+  Symbol, `picGroup()` legt das Symbol maßstabsgerecht und mittig in die
+  Innenraute (50,94 … 527,82). `PIC_BOX` rechnet den `viewBox`-Raum der
+  Vorlage auf 579 um, `PIC_FIT` enthält Zielgröße (`s`) und Symbolmitte
+  (`mx`/`my`) je Piktogramm – die Originale sitzen unterschiedlich hoch und
+  groß in ihrer Fläche. Die Werte stammen aus `node .build/ghs-fit-calc.js`.
+  Vorlagen mit eigener Raute bleiben in ihrem Originalraum (`ownFrame`).
 
 ## Druck
 
@@ -46,8 +61,16 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | `print-measure.js` | misst die Druckgeometrie (mm) nach `beforeprint` |
 | `file-check.js` | Struktur-/Encoding-Sanity der Einzeldatei |
 | `measure.js` | Geometrie des GHS-Bereichs im Browser |
-| `inline-ghs.js` | bettet GHS-Pfade ein (idempotent) |
-| `fix-exclam.js` | korrigiert viewBox/Pfadskala von GHS07 |
+| `ghs-bbox.js` | Bounding-Box je GHS-Symbol im 579er-Raum (Werte für `PIC_FIT`) |
+| `ghs-fit-calc.js` | misst die Originale und berechnet `s`/`mx`/`my` für `PIC_FIT` |
+| `ghs-fit-check.js` | prüft Zentrierung/Größe der Symbole in den Editor-Kacheln |
+| `ghs-sym-dump.js` | rendert jedes Symbol einzeln nach `.build/out/sym-*.png` |
+| `ghs-src-check.js` | vergleicht eingebettete Pfade mit `.ghs/*.svg` |
+| `fetch-official.js` | lädt die neun Originalsymbole nach `.ghs-official/` |
+| `embed-official.js` | schreibt Symbol + Raute aus `.ghs-official/` in die HTML-Datei |
+| `compare-embedded.js` | vergleicht die eingebetteten Pfade zeichengenau mit den Originalen |
+| `tile-check.js` | prüft je Raute: deckendes Weiß, roter Rand, Symbol deckend schwarz |
+| `picker-shot.js`, `editor-shot.js` | Screenshots der GHS-Auswahl bzw. des Editors (hell/dunkel) |
 | `fix-encoding.js`, `repair-mojibake.js` | Encoding-Reparaturen (idempotent) |
 
 Aufruf im Projektordner:

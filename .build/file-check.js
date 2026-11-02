@@ -20,6 +20,7 @@ const rows = [
     ['localStorage', /localStorage/.test(t)],
     ['9 GHS-Piktogramme', (t.match(/code: 'GHS0\d'/g) || []).length],
     ['setProperty(--scale)', /setProperty\('--scale'/.test(t)],
-    ['exclam viewBox 579', /key: 'exclam'[^\n]*0 0 579 579/.test(t)],
+    ['exclam viewBox 5790', /key: 'exclam'[^\n]*0 0 5790 5790/.test(t)],
+    ['GHS-Raute (overlay)', /overlay: \[\{"d":"[^"]+"[^\]]*"#fff"/.test(t) || /overlay: \[/.test(t)],
 ];
 rows.forEach(([k, v]) => console.log(String(k).padEnd(28) + v));
