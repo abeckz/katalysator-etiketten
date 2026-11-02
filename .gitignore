@@ -1,0 +1,12 @@
+# Build-Artefakte der Prüfskripte (Screenshots, PDF, DOM-Dumps, Backups)
+.build/out/
+
+# Betriebssystem / Editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+
+# Node (nur falls lokal Skripte ausgeführt werden)
+node_modules/
+package-lock.json

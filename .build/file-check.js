@@ -1,0 +1,25 @@
+/*
+ * Sanity-Check der Einzeldatei (keine externen Abhängigkeiten).
+ *   node .build/file-check.js
+ */
+const fs = require('fs');
+const path = require('path');
+
+const file = path.join(__dirname, '..', 'katalysator-etiketten.html');
+const t = fs.readFileSync(file, 'utf8');
+
+const rows = [
+    ['Groesse (KB)', (Buffer.byteLength(t) / 1024).toFixed(0)],
+    ['Zeilen', t.split('\n').length],
+    ['Ersatzzeichen U+FFFD', (t.match(/\uFFFD/g) || []).length],
+    ['<script> offen/geschlossen', (t.match(/<script/g) || []).length + ' / ' + (t.match(/<\/script>/g) || []).length],
+    ['<template> offen/geschlossen', (t.match(/<template/g) || []).length + ' / ' + (t.match(/<\/template>/g) || []).length],
+    ['embedded-data vorhanden', /id="embedded-data"/.test(t)],
+    ['showSaveFilePicker', /showSaveFilePicker/.test(t)],
+    ['Download-Fallback', /download\s*=/.test(t)],
+    ['localStorage', /localStorage/.test(t)],
+    ['9 GHS-Piktogramme', (t.match(/code: 'GHS0\d'/g) || []).length],
+    ['setProperty(--scale)', /setProperty\('--scale'/.test(t)],
+    ['exclam viewBox 579', /key: 'exclam'[^\n]*0 0 579 579/.test(t)],
+];
+rows.forEach(([k, v]) => console.log(String(k).padEnd(28) + v));
