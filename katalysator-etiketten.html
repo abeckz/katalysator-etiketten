@@ -280,14 +280,19 @@ select option{background-color:var(--surface);color:var(--ink)}
 .label__lefttext > span{display:block}   /* "Ausbau" / "Katalysator" untereinander */
 /* Titelspalte so schmal wie ihr Inhalt: „Ausbau“/„Katalysator“ stehen
    zweizeilig (rund 24 mm), dadurch bleibt für den Datenblock mehr Breite.
-   Der Ausbaukatalysator darf die komplette Höhe des Etiketts einnehmen. */
+   Der Ausbaukatalysator darf die komplette Höhe des Etiketts einnehmen.
+   GLOBAL (für alle Etiketten dieses Projekts): der Titel ist IMMER
+   zweizeilig – „Ausbau“ in der ersten, „Katalysator“ in der zweiten Zeile.
+   Bei langen Katalysatornamen gab es vorher eine dritte Zeile („Kat“/
+   „alysator“); die Spalte wird deshalb nur so hoch wie zwei Zeilen. */
 .label__left{
   flex:0 0 auto;                       /* Breite folgt dem Inhalt */
   height:100%;
   display:flex;align-items:center;justify-content:center;
   position:relative;
+  flex-direction:column;
   padding:0;
-  border-right:.5mm solid #000;
+  border-right:.7mm solid #000;        /* vertikaler Trennstrich (etwas dicker) */
   margin-right:5mm;                    /* Abstand Titelspalte -> Datenblock */
 }
 .label__lefttext{
@@ -297,9 +302,9 @@ select option{background-color:var(--surface);color:var(--ink)}
   line-height:1.04;
   font-weight:800;
   letter-spacing:.01em;
-  white-space:normal;                  /* zweizeilig: "Ausbau" / "Katalysator" */
+  white-space:nowrap;                  /* IMMER genau zwei Zeilen, nie drei */
   text-align:center;
-  height:100%;                         /* füllt die Etikettenhöhe (max. 138,5 mm) */
+  height:auto;                         /* nur so hoch wie der Text */
   max-height:100%;
   display:flex;align-items:center;justify-content:center;
   gap:3mm;
@@ -308,7 +313,12 @@ select option{background-color:var(--surface);color:var(--ink)}
    Die Datenspalte ist nur so breit wie ihr Inhalt (Katalysator < 15 Zeichen,
    kurzes Datum), die GHS-Gruppe bekommt den Rest der Breite. Das Signalwort
    liegt dadurch zwangsläufig in der GHS-Spalte unter den Rauten.
-   Die Empfängerbox sitzt in der zweiten Zeile direkt unter den Feldern. */
+   Die Empfängerbox sitzt in der zweiten Zeile direkt unter den Feldern.
+
+   Mittelachse: (obere Spitze der GHS-Gruppe + Unterkante Signalwort) / 2
+   liegt genau in der Mitte des Etiketts. Dafür wird der Freiraum über der
+   GHS-Gruppe berechnet (`--ghs-top`, siehe `alignGhsMid()` im Skript) –
+   die Gruppe steht dadurch zwangsläufig in der Etikettenmitte. */
 .label__right{
   flex:1 1 auto;min-width:0;height:100%;
   display:grid;
@@ -318,8 +328,10 @@ select option{background-color:var(--surface);color:var(--ink)}
     "fields ghs"
     "recipient ghs";
   align-items:start;
-  gap:2.4mm 4mm;
+  column-gap:4mm;
+  row-gap:2.4mm;
   padding:0;                          /* Rand kommt vom Etikett (5 mm) */
+  --ghs-top:0mm;                      /* per JS gesetzt */
 }
 /* Felder: Katalysator, Ausbaudatum, aus Ofen, ex Produktion untereinander.
    Die Spalte bleibt kompakt (rund 60–72 mm); die Zeilen sind nur so hoch
@@ -371,13 +383,22 @@ select option{background-color:var(--surface);color:var(--ink)}
 /* GHS-Bereich: Rauten oben, Signalwort zentriert darunter.
    `--cell` wird aus der gewählten Rautengröße gesetzt: zwei Rauten passen
    immer nebeneinander in die Spalte (3 Reihen x 2 Spalten), die Rauten werden
-   bei kleinerem Platz entsprechend kleiner. */
+   bei kleinerem Platz entsprechend kleiner.
+   `--ghs-top` ist der Freiraum über der Gruppe, damit die Mittelachse
+   (Spitze der Gruppe .. Unterkante Signalwort) in der Etikettenmitte liegt;
+   berechnet in `alignGhsMid()`. */
 .ghs{
   grid-area:ghs;
   justify-self:end;
   width:max-content;max-width:100%;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2mm;
-  margin:.6mm 0 0;
+  margin:0;
+  position:relative;
+  /* Freiraum über der Gruppe. `top` (statt padding) verschiebt die Gruppe
+     nach unten, ohne die Rasterhöhe zu verändern – dadurch bleibt die
+     Messung in `alignGhsMid()` stabil und die Gruppe kann nie in die
+     Empfängerbox wachsen. */
+  top:var(--ghs-top, 0mm);
 }
 .ghs__grid{
   flex:0 0 auto;
@@ -390,16 +411,15 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 
 .ghs__dia{
-  display:block;padding:0;border:0;background:transparent;cursor:pointer;
+  display:block;padding:0;border:0;background:transparent;
   width:var(--cell, 18mm);height:var(--cell, 18mm);
   position:relative;z-index:1;
+  cursor:default;                 /* reine Anzeige, kein Klickziel */
 }
-.ghs__dia:focus-visible{outline:none}
-/* Bedienhilfe am Bildschirm: Raute hervorheben (nicht gedruckt) */
-@media screen{
-  .ghs__dia:hover svg{filter:brightness(.82)}
-  .ghs__dia:focus-visible svg{outline:.5mm solid #2563eb;outline-offset:.5mm}
-}
+/* Die Raute ist im Etikett reine Anzeige – kein Hover-/Fokus-Effekt mehr.
+   Sie füllt die Kachel exakt aus (Breite = Höhe = --cell), damit die obere
+   Spitze der Gruppe auf der Kacheloberkante liegt (Grundlage für die
+   Mittelachse des Etiketts, siehe `--ghs-mid`). */
 .ghs__dia svg{display:block;width:100%;height:100%}
 /* Keine zusätzliche Fläche hinter der Raute mehr: ghsTile bringt Rahmen und
    weiße Innenfläche selbst mit und endet exakt an der Kachelkante, dadurch
@@ -642,7 +662,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     page-break-inside:avoid;
     background:#fff!important;
   }
-  .label__left{border-right:.5mm solid #000!important}
+  .label__left{border-right:.7mm solid #000!important}
   /* nur Inhalt der Etiketten schwaerzen (Rahmenlinien bleiben unveraendert) */
   .label__lefttext,.lrow__v,.ghs__signal,.ghs__empty,.recipient{color:#000!important}
   *{box-shadow:none!important;text-shadow:none!important;animation:none!important;transition:none!important}
@@ -1341,9 +1361,10 @@ select option{background-color:var(--surface);color:var(--ink)}
           if (!used) return '<span class="ghs__slot" aria-hidden="true"></span>';
           const key = list[i]; i += 1;
           const g = GHS_BY_KEY.get(key);
-          return '<button type="button" class="ghs__dia" data-key="' + esc(key) + '" ' +
-            'title="' + esc(g.name + ' entfernen') + '" aria-label="' + esc(g.name + ' entfernen') + '">' +
-            ghsTile(key) + '</button>';
+          /* Reine Anzeige – keine Schaltfläche: ein Klick auf die Raute in der
+             Vorschau darf das Piktogramm nicht abwählen. */
+          return '<span class="ghs__dia" data-key="' + esc(key) + '" ' +
+            'title="' + esc(g.code + ' ' + g.name) + '">' + ghsTile(key) + '</span>';
         }).join('') + '</div>';
     }
 
@@ -1392,7 +1413,83 @@ select option{background-color:var(--surface);color:var(--ink)}
         }
       });
     });
+    alignGhsMid();
   }
+
+  /* ------------------------------------------------------------------
+     Mittelachse der GHS-Gruppe
+     Die Mitte des Etiketts ist (obere Spitze der GHS-Gruppe bis Unterkante
+     Signalwort) / 2. Die GHS-Zelle füllt im Raster beide Zeilen, deshalb
+     wird der Freiraum über der Gruppe (`--ghs-top`) so gesetzt, dass diese
+     Mitte exakt auf der Etikettenmitte liegt.
+     Die obere Spitze wird gemessen (erste Raute: Rect-Mitte − halbe Höhe),
+     das Signalwort über seine Unterkante; dadurch stimmt die Rechnung auch
+     bei anderen Rautengrößen und ohne Piktogramme (Text „keine Piktogramme“).
+     Die Etiketten sind im Bildschirm per `transform: scale(--zoom)`
+     verkleinert – gemessen wird deshalb über `getBoundingClientRect()`
+     (Sicht-Maße) und der Zoomfaktor wieder herausgerechnet. */
+  const MM_PER_PX = 25.4 / 96;
+  function pxToMm(px) { return px * MM_PER_PX; }
+
+  /* Ist das Etikett gerade verkleinert (Vorschau) oder steht es 1:1 (Druck)? */
+  function sheetZoom() {
+    const sheet = el.sheet;
+    if (!sheet) return 1;
+    const px = parseFloat(window.getComputedStyle(sheet).getPropertyValue('--zoom'));
+    return px > 0 ? px : 1;
+  }
+
+  function alignGhsMid() {
+    const zoom = sheetZoom();
+    el.labels.forEach(function (label) {
+      const ghs = label.querySelector('.ghs');
+      const right = label.querySelector('.label__right');
+      if (!ghs || !right) return;
+
+      /* Ausgangslage: kein Freiraum über der Gruppe */
+      right.style.setProperty('--ghs-top', '0mm');
+
+      /* Bezug ist die Innenfläche des Etiketts VOR dem Setzen: `.label__right`
+         füllt sie exakt aus – der 5-mm-Rand liegt innen (s. buildLabels).
+         Nicht über `label.getBoundingClientRect()` gehen: die mm-Maße des
+         Etiketts werden von Chrome auf ganze CSS-Pixel gerundet
+         (148,5 mm -> 562 px). */
+      const box = right.getBoundingClientRect();
+      const innerTop = box.top;
+      const innerHeight = box.height;
+
+      /* Obere Spitze der Gruppe = Oberkante der ersten Raute (die Raute füllt
+         ihre Kachel exakt aus, s. `.ghs__dia`). Ohne Piktogramme beginnt die
+         Gruppe mit dem Text „keine Piktogramme“.
+         Untere Kante = Unterkante des Signalworts. */
+      const tile = ghs.querySelector('.ghs__dia');
+      const grid = ghs.querySelector('.ghs__grid');
+      const sig = ghs.querySelector('.ghs__signal');
+      const top = tile
+        ? tile.getBoundingClientRect().top
+        : (grid || ghs).getBoundingClientRect().top;
+      const bottom = sig
+        ? sig.getBoundingClientRect().bottom
+        : ghs.getBoundingClientRect().bottom;
+
+      /* Ist-Mitte (von der Etiketteninnenkante aus) und Etikettenmitte */
+      const mid = (top + bottom) / 2 - innerTop;
+      /* Freiraum oben so vergrößern, dass die Mitte in der Etikettenmitte
+         liegt: der Freiraum verschiebt die Gruppe (und damit ihre Mitte) um
+         genau seinen Wert. Auf >= 0 begrenzen (steht ohnehin mittig, wenn die
+         Gruppe schon zu tief sitzt). Ohne Zwischenrundung in mm – 0,05 mm
+         wären hier bereits 0,19 px Messfehler. */
+      const topMm = Math.max(0, pxToMm(innerHeight / 2 - mid) / zoom);
+      right.style.setProperty('--ghs-top', topMm.toFixed(3) + 'mm');
+    });
+  }
+
+  /* Nach jedem Neuaufbau (Schrift lädt, Fenster ändert die Skalierung)
+     erneut ausrichten – die Messung ist unabhängig von der Zoomstufe. */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { alignGhsMid(); });
+  }
+  window.addEventListener('resize', alignGhsMid);
 
   function renderSummary() {
     const profile = currentProfile();
@@ -1435,6 +1532,9 @@ select option{background-color:var(--surface);color:var(--ink)}
       el.sheetFit.style.width = Math.round(sheetW * zoom) + 'px';
       el.sheetFit.style.height = Math.round(sheetH * zoom) + 'px';
     }
+    /* Die Mittelachse der GHS-Gruppe hängt nicht vom Zoom ab – hier nur
+       einmal neu bestimmen, damit nach dem Layoutwechsel nichts verrutscht. */
+    alignGhsMid();
   }
 
   /* ------------------------------------------------------------------
@@ -1780,19 +1880,12 @@ select option{background-color:var(--surface);color:var(--ink)}
     updatePickerState();
   });
 
-  /* Raute direkt im Etikett anklicken = Piktogramm für diesen Katalysator
-     abwählen (Klick irgendwo sonst aufs Etikett ändert nichts). */
+  /* Die Etiketten sind reine Vorschau/Druckansicht: ein Klick auf eine Raute
+     darf NICHTS verändern (früher wurde das Piktogramm dabei abgewählt und
+     verschwand aus der Vorschau). Rauten werden deshalb nie als Button
+     gerendert, und vorsorglich bleibt jeder Klick im Blatt wirkungslos. */
   el.sheet.addEventListener('click', function (e) {
-    const tile = e.target.closest('.ghs__dia');
-    if (!tile) return;
-    const profile = currentProfile();
-    const key = tile.getAttribute('data-key');
-    if (!profile || profile.symbols.indexOf(key) < 0) return;
-    profile.symbols = profile.symbols.filter(function (k) { return k !== key; });
-    if (state.editingId === profile.id) state.draftSymbols = profile.symbols.slice();
-    markDirty();
-    render();
-    if (state.editingId === profile.id) renderPicker();
+    if (e.target.closest('.sheet')) e.preventDefault();
   });
 
   el.entryForm.addEventListener('submit', function (e) {
@@ -1841,8 +1934,14 @@ select option{background-color:var(--surface);color:var(--ink)}
       el.sheetFit.style.width = Math.round(210 * mmToPx) + 'px';
       el.sheetFit.style.height = Math.round(297 * mmToPx) + 'px';
     }
+    /* Druckmaßstab: Mittelachse neu bestimmen (Zoom = 1) */
+    alignGhsMid();
   });
-  window.addEventListener('afterprint', fitSheet);
+  window.addEventListener('afterprint', function () {
+    fitSheet();
+    /* Zurück auf Vorschau-Maßstab */
+    alignGhsMid();
+  });
 
   /* ------------------------------------------------------------------
      10) START
