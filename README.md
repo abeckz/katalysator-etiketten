@@ -83,9 +83,20 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
 
 ## Druck
 
-`@page { size: A4 portrait; margin: 0 }`; die Vorschau-Skalierung wird über
-`beforeprint` auf `--zoom: 1` gesetzt, das Blatt steht statisch auf 210 × 297 mm.
-Ergebnis: genau eine A4-Seite (per PDF geprüft).
+`@page { size: A4 portrait; margin: 0 }`. Die Vorschau-Skalierung darf den
+Ausdruck **nicht** beeinflussen, deshalb passiert beim Druck zweierlei:
+
+* CSS (`@media print`): `--zoom`/`transform` aus, Blatt fest auf 210 × 297 mm,
+  Vorschau-Container (`display:block`, `place-items:start`, kein Padding/Rahmen)
+  und `html`/`body` ohne Scrollbereich – im Druck scrollt nichts.
+* JS (`beforeprint` → `applyPrintStyles()`): setzt `--zoom: 1`, feste
+  Druckmaße (`--sheet-w`, `--sheet-h` = 210/297 mm) und die Maße des Wrappers
+  `.sheet-fit` auf 210 × 297 mm; `fitSheet()` rechnet im Druckmedium nicht
+  nach. `afterprint` → `clearPrintStyles()` + `fitSheet()` stellt die
+  Vorschau wieder her.
+
+Ergebnis: genau eine A4-Seite (per PDF geprüft), keine Scrollbalken und kein
+herausgeschobenes Blatt.
 
 ## Prüfskripte (`.build/`)
 
@@ -96,6 +107,7 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | `ui-check.js` | Screenshots + PDF (1 Seite, A4), DOM-Assertions |
 | `behavior-check.js` | Ablauftests: Selects, Live-Updates, GHS-Limit, Editor, localStorage |
 | `print-measure.js` | misst die Druckgeometrie (mm) nach `beforeprint` |
+| `print-media-probe.js`, `print-cdp-probe.js` | Druckmedium per CDP (`Emulation.setEmulatedMedia`) prüfen: Scrollbalken, Blattlage, PDF |
 | `fit-probe.js` | prüft Fensterfüllung/Überlauf (optional `--editor`); Maße `Breite Höhe` |
 | `sheet-box.js` | prüft die sichtbare Blattgröße gegen die Vorschau-Fläche |
 | `ghs-geometry.js` | Etiketten-Geometrie für 0–6 Piktogramme (0 mm Überdeckung erwartet) |

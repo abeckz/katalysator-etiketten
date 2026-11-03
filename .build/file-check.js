@@ -20,6 +20,11 @@ const rows = [
     ['localStorage', /localStorage/.test(t)],
     ['9 GHS-Piktogramme', (t.match(/code: 'GHS0\d'/g) || []).length],
     ['setProperty(--scale)', /setProperty\('--scale'/.test(t)],
+    /* Die Bildschirm-Skalierung steckt in `--zoom`; `--scale` darf es nicht
+       mehr geben (sonst wirkte die Vorschau auf den Druck). */
+    ['setProperty(--zoom)', /setProperty\('--zoom'/.test(t)],
+    ['applyPrintStyles', /function applyPrintStyles\(\)/.test(t)],
+    ['@media print ohne Scrollen', /@media print\{[\s\S]*?place-items:start!important/.test(t)],
     ['exclam viewBox 5790', /key: 'exclam'[^\n]*0 0 5790 5790/.test(t)],
     ['GHS-Raute (overlay)', /overlay: \[\{"d":"[^"]+"[^\]]*"#fff"/.test(t) || /overlay: \[/.test(t)],
 ];

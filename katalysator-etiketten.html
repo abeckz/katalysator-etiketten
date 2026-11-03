@@ -743,20 +743,44 @@ select option{background-color:var(--surface);color:var(--ink)}
     print-color-adjust:exact!important;
   }
   /* Bildschirm-Aufteilung (Fensterhöhe, interne Scrollbereiche) aufheben –
-     im Druck steht wieder das ganze A4-Blatt in einem Fluss. */
+     im Druck steht wieder das ganze A4-Blatt in einem Fluss. Zusätzlich darf
+     im Druck NICHTS scrollen: sonst erzeugt die Browser-Druckvorschau
+     Scrollbalken, wenn ein Element (z. B. durch die Bildschirm-Skalierung)
+     breiter als die bedruckbare Fläche ist. */
+  html,body{overflow:visible!important;scrollbar-width:none}
+  body::-webkit-scrollbar{width:0;height:0}
   .app-shell{display:block!important;height:auto!important;overflow:visible!important}
   /* Bedienoberflaeche vollstaendig ausblenden */
   .app-bar,.toast,.modal,.stage-tools,.no-print{display:none!important}
   /* auch das linke Formular ausblenden (sonst sichtbar, wenn im Browser eine
      eigene „Hintergrundgrafiken“-Druckoption abweicht) */
   .panel,.panel.no-print{display:none!important}
-  .workspace{display:block!important;max-width:none!important;margin:0!important;padding:0!important}
-  .preview-wrap,.sheet-stage{display:block!important;padding:0!important;margin:0!important;border:0!important;background:none!important;overflow:visible!important}
-  .sheet-fit{width:auto!important;height:auto!important}
+  .workspace{display:block!important;max-width:none!important;margin:0!important;padding:0!important;overflow:visible!important}
+  /* Das Blatt steht links oben auf dem Bogen – keine Zentrierung, kein
+     Innenabstand, kein Rahmen. `place-items:start` ist hier wichtig: die
+     Bildschirm-Vorschau zentriert (`display:grid; place-items:center`), im
+     Druck würde ein 1 px zu breites Blatt dadurch nach links aus dem Bogen
+     geschoben (negative x-Position). */
+  .preview-wrap,.sheet-stage{
+    display:block!important;
+    place-items:start!important;
+    width:auto!important;max-width:none!important;height:auto!important;
+    padding:0!important;margin:0!important;border:0!important;background:none!important;
+    overflow:visible!important;border-radius:0!important;
+  }
+  /* Der Wrapper übernimmt im Druck KEINE eigenen (Vorschau-)Maße – die
+     Blattgröße selbst ist maßgeblich. */
+  .sheet-fit{
+    display:block!important;
+    width:auto!important;min-width:0!important;
+    height:auto!important;min-height:0!important;
+    margin:0!important;padding:0!important;
+  }
   .sheet{
     transform:none!important;
     position:relative!important;
     width:210mm!important;height:297mm!important;
+    max-width:none!important;max-height:none!important;
     margin:0!important;
     box-shadow:none!important;
     overflow:hidden;
@@ -1658,14 +1682,50 @@ select option{background-color:var(--surface);color:var(--ink)}
      Fensterrand – bei kleinem Fenster wird die Vorschau kleiner, bei großem
      Fenster entsprechend größer.
      Wichtig: `transform: scale()` verändert die Bounding-Box NICHT. Deshalb
-     werden Breite/Höhe von `.sheet` und `.sheet-fit` auf die skalierten
-     Pixelmaße gesetzt, damit Raster und Fläche exakt zusammenpassen. */
+     bekommt der Wrapper `.sheet-fit` die skalierte Größe (damit Raster und
+     Fläche exakt zusammenpassen).
+     Alle hier gesetzten Inline-Werte (Blattgröße, Zoom, Wrapper-Maße) gelten
+     AUSSCHLIESSLICH für den Bildschirm. Vor dem Druck räumt `clearPrintStyles()`
+     sie weg – sonst würde die Vorschau-Skalierung den Ausdruck verändern. */
   const PREVIEW_W_MM = 210;
   const PREVIEW_H_MM = 148.5;
+  const PRINT_W_MM = 210;
+  const PRINT_H_MM = 297;
   const SHADOW_GAP = 14;               /* px Luft für den Blattschatten */
   let pendingFit = 0;
+
+  /* Beim Druckaufbau (beforeprint) wird die Skalierung der Bildschirm-
+     Vorschau vollständig entfernt: `--zoom: 1` UND feste Druckmaße für Blatt
+     und Wrapper. Fehlte der Wrapper (er war auf die Vorschaufläche gesetzt),
+     übernahm er beim Druck das A4-Maß (794 px) in einer 779 px breiten
+     Spalte – daraus entstanden ein horizontaler Scrollbalken, das
+     herausgeschobene Blatt (x = -7 px) und der Überlauf nach unten. */
+  function applyPrintStyles() {
+    if (!el.sheet) return;
+    el.sheet.style.setProperty('--zoom', '1');
+    el.sheet.style.setProperty('--sheet-w', PRINT_W_MM + 'mm');
+    el.sheet.style.setProperty('--sheet-h', PRINT_H_MM + 'mm');
+    if (el.sheetFit) {
+      el.sheetFit.style.width = PRINT_W_MM + 'mm';
+      el.sheetFit.style.height = PRINT_H_MM + 'mm';
+    }
+  }
+
+  /* Nach dem Druck wieder auf die Bildschirm-Vorschau zurück. */
+  function clearPrintStyles() {
+    if (!el.sheet) return;
+    el.sheet.style.removeProperty('--zoom');
+    if (el.sheetFit) {
+      el.sheetFit.style.width = '';
+      el.sheetFit.style.height = '';
+    }
+  }
+
   function fitSheet() {
     if (!el.sheet || !el.sheetStage) return;
+    /* Während des Druckaufbaus bleibt das Blatt 1:1 – keine Bildschirm-
+       Skalierung in den Ausdruck hineinrechnen. */
+    if (window.matchMedia && window.matchMedia('print').matches) return;
     const mmToPx = 96 / 25.4;
     const sheetW = PREVIEW_W_MM * mmToPx;
     const sheetH = PREVIEW_H_MM * mmToPx;
@@ -2167,16 +2227,13 @@ select option{background-color:var(--surface);color:var(--ink)}
   }
 
   window.addEventListener('beforeprint', function () {
-    el.sheet.style.setProperty('--zoom', '1');
-    if (el.sheetFit) {
-      const mmToPx = 96 / 25.4;
-      el.sheetFit.style.width = Math.round(210 * mmToPx) + 'px';
-      el.sheetFit.style.height = Math.round(297 * mmToPx) + 'px';
-    }
+    applyPrintStyles();
     /* Druckmaßstab: Mittelachse neu bestimmen (Zoom = 1) */
     alignGhsMid();
   });
   window.addEventListener('afterprint', function () {
+    /* Inline-Werte der Vorschau wieder übernehmen lassen, dann neu messen. */
+    clearPrintStyles();
     fitSheet();
     /* Zurück auf Vorschau-Maßstab */
     alignGhsMid();
