@@ -549,23 +549,37 @@ select option{background-color:var(--surface);color:var(--ink)}
    Block um „ex Produktion“ wäre ebenfalls ein `.lrow` mit eigener Klammer,
    also drei C übereinander). Deshalb hier ein eigenes `::before`.
    Die Klammer wächst in der Höhe mit: sie umschließt Überschrift, Wert und
-   die Schreibzeilen. Die drei Schreibzeilen sind leer 8,6 mm hoch und werden
-   mit Inhalt eine Zeile höher (rund 11 mm) – die Gruppe (und damit die
+   die Schreibzeilen. Die drei Schreibzeilen sind leer 13,4 mm hoch und werden
+   mit Inhalt eine Zeile höher (15,5 mm) – die Gruppe (und damit die
    Klammer) dehnt sich also, sobald eine Zusatzzeile beschrieben wird.
+   Der Abstand zwischen den vier Zeilen ist gleichmäßig: „ex Produktion“
+   bekommt über `padding-bottom` dieselbe Luft wie die Höhe einer
+   Zusatzzeile über ihrem Text (s. `.lrow--group > .lrow--row`).
    Leere Zeilen bleiben als Schreibplatz erhalten, Bildschirm und Druck sind
    dadurch identisch. */
 .lrow--group{
-  display:flex;flex-direction:column;gap:1mm;min-width:0;
+  display:flex;flex-direction:column;gap:0;min-width:0;
   flex:0 1 auto;min-height:0;
   position:relative;
-  /* Platz links für die Klammer (wie `.lrow`) und oben/unten so viel, dass
-     der obere Bogen die Überschrift „ex Produktion“ nicht berührt und der
-     untere Bogen unter der letzten Schreibzeile liegt. */
-  padding:.9mm 0 .9mm 5.6mm;
+  /* Kein Platz links (die innere Zeile bringt denselben 5,6-mm-Vorsprung mit
+     wie `.lrow`, damit Überschrift und Wert exakt unter „aus Ofen“ stehen).
+     Oben/unten 0,9 mm, damit der obere Bogen die Überschrift „ex Produktion“
+     nicht berührt; der Abstand zur ersten Schreibzeile steckt in der
+     Zeilenhöhe (s. `.lrow--group > .lrow--row`). */
+  padding:.9mm 0 .9mm 0;
   box-sizing:border-box;
 }
 /* Gemeinsame Klammer der Gruppe: gleiche Optik wie `.lrow::before`
-   (0,8 mm, hellgrau, fester Bogenradius 1,8 mm, Bögen 2 cm nach rechts). */
+   (0,8 mm, hellgrau, fester Bogenradius 1,8 mm, Bögen 2 cm nach rechts).
+   Der Kasten ist um 0,9 mm nach oben/unten aufgeweitet (negativer Rand wie
+   bei `.lrow`), damit die Bogenenden frei liegen – die Zusatzzeilen haben
+   `overflow:hidden` und würden den unteren Bogen sonst an der Kastenkante
+   abschneiden.
+   `left` bei 0 (nicht negativ): der Container hat links keine Polsterung, der
+   Strich beginnt also am linken Rand der Gruppenbox – exakt auf derselben
+   Flucht wie die Klammern der Einzelfelder. Ein negativer Wert würde den
+   Strich aus dem Kasten schieben, wo ihn `.label__fields{overflow:hidden}`
+   abschneidet. */
 .lrow--group::before{
   content:"";
   position:absolute;
@@ -579,6 +593,8 @@ select option{background-color:var(--surface);color:var(--ink)}
   border-bottom-width:.8mm;
   border-right-width:0;
   border-radius:1.8mm 0 0 1.8mm;
+  margin-top:-.9mm;
+  margin-bottom:-.9mm;
   box-sizing:border-box;
   pointer-events:none;
   -webkit-print-color-adjust:exact;
@@ -586,20 +602,33 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 .lrow--extra{
   display:block;                           /* nur Wert, keine Beschriftung */
-  /* Höhe als Flex-Basis: leer = 8,6 mm Schreibplatz, mit Inhalt 11 mm.
+  /* Höhe = Wertehöhe (rund 8,9 mm) + 4,5 mm Luft: leer 13,4 mm, mit Inhalt
+     15,5 mm. Der Text steht oben in der Zeile, die restliche Höhe wirkt als
+     Abstand zur nächsten Zeile. Dieselbe Luft bekommt „ex Produktion“ über
+     `padding-bottom` (s. `.lrow--group > .lrow--row`) – erst dadurch sitzt
+     zwischen allen vier Zeilen der Gruppe derselbe Abstand.
      `flex-shrink:1` mit `min-height:0` lässt die Zeilen bei Platznot flacher
      werden, statt den Block über die verfügbare Höhe hinauszudrücken (sonst
-     würde der obere Klammerbogen angeschnitten). */
-  flex:0 1 8.6mm;
+     würde der untere Klammerbogen angeschnitten); der Text bleibt dabei
+     stehen (`overflow:hidden` schneidet nur die überzählige Luft ab). */
+  flex:0 1 13.4mm;
   min-height:0;
   overflow:hidden;
-  padding-left:var(--bracket-lead, 5mm);
-  margin-top:1mm;
+  /* Textbeginn 5,6 mm ab dem linken Rand der Gruppenbox – exakt derselbe
+     Abstand wie bei den Einzelfeldern (`.lrow`: 5 mm Führung + 0,8 mm
+     Strich). */
+  padding-left:calc(var(--bracket-lead, 5mm) + .8mm);
+  /* kein eigener Abstand: die Luft steckt in der Kastenhöhe (s. o.) */
+  margin-top:0;
 }
-.lrow--extra:first-of-type{margin-top:1.2mm}
-/* Steht Text in der Zeile, wächst sie auf die Höhe einer normalen Wertzeile –
-   die gemeinsame Klammer bekommt dadurch sichtbar mehr Höhe. */
-.lrow--extra:has(> .lrow__v:not(:empty)){flex-basis:11mm}
+/* Steht Text in der Zeile, wächst sie um eine Textzeile – die gemeinsame
+   Klammer bekommt dadurch sichtbar mehr Höhe, der Zeilenabstand bleibt
+   gleich. */
+.lrow--extra:has(> .lrow__v:not(:empty)){flex-basis:15.5mm}
+/* „ex Produktion“ bekommt dieselbe Luft wie die Zusatzzeilen, damit der
+   Abstand zum ersten Schreibfeld genauso groß ist wie zwischen den
+   Schreibfeldern (Wert bleibt oben, die Luft wirkt nach unten). */
+.lrow--group > .lrow--row{padding-bottom:6.9mm}
 /* Leere Zusatzzeilen bleiben als Schreibplatz reserviert. Damit sie den
    Textblock aber nicht über die verfügbare Höhe hinaus drücken (dann wäre der
    obere Klammerbogen angeschnitten), geben sie bei Platznot nach: der
@@ -612,8 +641,12 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 /* Die Gruppenklammer darf nicht über die Spalte hinauswachsen: wird sie
    gestaucht, verschwinden die überzähligen Zeilen hinter dem unteren Bogen
-   (die Klammer bleibt als Ganzes sichtbar, nichts wird angeschnitten). */
-.label__fields > .lrow--group{overflow:hidden}
+   (die Klammer bleibt als Ganzes sichtbar).
+   Achtung: KEIN `overflow:hidden/clip` auf der Gruppe – der Kasten würde
+   dabei am Padding-Rand geschnitten, also genau am linken Strich der
+   Klammer (`.lrow--group::before{left:-.8mm}`) – der Strich wäre dadurch
+   abgeschnitten. Das Kappen übernehmen die Zusatzzeilen selbst
+   (`.lrow--extra{overflow:hidden}`), die Klammer bleibt vollständig. */
 .lrow--group > .lrow--extra{min-height:0}
 .lrow--extra > .lrow__v{
   display:block;
@@ -1831,7 +1864,7 @@ select option{background-color:var(--surface);color:var(--ink)}
   /* Toleranz: der Browser rundet Millimeter auf ganze Pixel. Bei rund 4 px/mm
      können Rechnung und Messung bis ~0,15 mm auseinanderliegen; erst darüber
      gilt eine Spalte als überlaufend. */
-  const OVER_MM = 0.15;
+  const OVER_MM = 0.35;
   const FIELDS_TOP_MM = 6;      /* Versatz des Blocks unter der Randkante
                                    (bündig auf dem Rand wirkt der obere Bogen
                                    angeschnitten) */
@@ -1839,7 +1872,47 @@ select option{background-color:var(--surface);color:var(--ink)}
                                    den Klammerbögen, s. `.label__fields`) */
   const FIELDS_GAP_MIN_MM = 2.2;/* kleinster Zeilenabstand, bevor die
                                    Gruppenklammer gestaucht wird */
-  const GROUP_MIN_MM = 18;      /* Notbremse: darunter wird nie gestaucht */
+  /* Natürliche Höhe der Gruppenklammer („ex Produktion“ + 3 Zusatzzeilen),
+     gemessen bei aktuellen Zeilenhöhen. Untergrenze für die Stauchung ist der
+     Abstand zwischen den Klammerbögen der Nachbarzeilen
+     (`FIELDS_GAP_MIN_MM`): so bleibt auch bei Platznot rund 2,2 mm Luft zum
+     oberen Bogen von „aus Ofen“ und zur Empfängerbox. */
+  const GROUP_NAT_MM = 53.4;
+  const GROUP_MIN_MM = GROUP_NAT_MM - FIELDS_GAP_MM + FIELDS_GAP_MIN_MM;
+  /* Mehr Luft in y zwischen den Blöcken: ist die Spalte höher als der Inhalt,
+     wird die überschüssige Höhe gleichmäßig auf die Abstände verteilt
+     (Katalysator -> Ausbaudatum -> aus Ofen -> Gruppe -> Empfängerbox).
+     Vorher sammelte sich die ganze Restluft als eine große Lücke zwischen
+     Gruppenklammer und Empfängerbox.
+     Obergrenze pro Abstand: `FIELDS_GAP_MAX_MM` – darüber wirkt der Block
+     auseinandergerissen. */
+  const FIELDS_GAP_MAX_MM = 6.0;
+
+  /* Ist der Inhalt höher als die Spalte? `scrollHeight` taugt dafür nicht:
+     `.label__fields` hat `overflow:hidden` und meldet immer
+     `scrollHeight == clientHeight`. Gemessen wird über die Kinder
+     (alles in CSS-Pixeln, der Zoom steckt bereits in den Rect-Werten). */
+  function fieldsGapPx(fields) {
+    /* Der Wert steht als „3.6mm“ in der Variablen – `getPropertyValue` liefert
+       ihn unverändert (nicht in Pixeln), ggf. mit Steuerzeichen am Ende. */
+    const raw = (getComputedStyle(fields).getPropertyValue('--fields-gap') || '')
+      .replace(/[^\d.,a-z]/gi, '');
+    const num = parseFloat(raw);
+    if (!isFinite(num)) return 0;
+    return /px$/i.test(raw) ? num : num / MM_PER_PX;
+  }
+
+  function fieldsOverMm(fields, zoom) {
+    const cs = getComputedStyle(fields);
+    const boxH = fields.clientHeight - parseFloat(cs.paddingTop) -
+      parseFloat(cs.paddingBottom);
+    let contentH = 0;
+    [].slice.call(fields.children).forEach(function (node) {
+      contentH += node.getBoundingClientRect().height;
+    });
+    const gaps = Math.max(1, fields.children.length - 1);
+    return pxToMm(contentH + fieldsGapPx(fields) * gaps - boxH) / zoom;
+  }
   /* Die Feldspalte steht bei `justify-content:flex-start` (keine
      Zentrierung). Reicht der Platz nicht, wird die Gruppenklammer gestaucht. */
   function alignFieldsTop() {
@@ -1848,6 +1921,10 @@ select option{background-color:var(--surface);color:var(--ink)}
       const fields = label.querySelector('.label__fields');
       const right = label.querySelector('.label__right');
       if (!fields || !right) return;
+      /* Nicht gerenderte Etiketten (2. Etikett im A4-Raster, versteckte
+         Vorschau) haben keine brauchbare Geometrie – ihre Messung würde die
+         Werte des sichtbaren Etiketts überschreiben. */
+      if (label.getBoundingClientRect().height < 1 || fields.clientHeight < 1) return;
 
       /* 1. Stufe: fester Versatz unter der 5-mm-Randkante (FIELDS_TOP_MM). */
       const boxTop = right.getBoundingClientRect().top;
@@ -1864,7 +1941,7 @@ select option{background-color:var(--surface);color:var(--ink)}
       let gap = FIELDS_GAP_MM;
       fields.style.setProperty('--fields-gap', gap + 'mm');
       for (let step = 0; step < 8; step += 1) {
-        const over = pxToMm(fields.scrollHeight - fields.clientHeight) / zoom;
+        const over = fieldsOverMm(fields, zoom);
         if (over <= OVER_MM || gap <= FIELDS_GAP_MIN_MM + 0.05) break;
         gap = Math.max(FIELDS_GAP_MIN_MM, gap - Math.max(0.5, over + 0.2));
         fields.style.setProperty('--fields-gap', gap.toFixed(2) + 'mm');
@@ -1878,8 +1955,8 @@ select option{background-color:var(--surface);color:var(--ink)}
       const group = fields.querySelector('.lrow--group');
       if (group) {
         group.style.removeProperty('flex-basis');
-        for (let step = 0; step < 24; step += 1) {
-          const over = pxToMm(fields.scrollHeight - fields.clientHeight) / zoom;
+        for (let step = 0; step < 40; step += 1) {
+          const over = fieldsOverMm(fields, zoom);
           if (over <= OVER_MM) break;
           const bh = pxToMm(group.getBoundingClientRect().height) / zoom;
           if (bh <= GROUP_MIN_MM + 0.1) break;
@@ -1887,8 +1964,32 @@ select option{background-color:var(--surface);color:var(--ink)}
           group.style.setProperty('flex-basis', target.toFixed(2) + 'mm');
         }
         /* Hat die natürliche Höhe gereicht, bleibt keine Stauchung zurück. */
-        if (pxToMm(fields.scrollHeight - fields.clientHeight) / zoom <= OVER_MM) {
+        if (fieldsOverMm(fields, zoom) <= OVER_MM) {
           group.style.removeProperty('flex-basis');
+        }
+      }
+
+      /* Vierte Stufe: ist danach noch Platz übrig, wird er gleichmäßig auf die
+         Abstände verteilt (mehr Luft in y zwischen den Blöcken statt einer
+         einzigen großen Lücke vor der Empfängerbox). Gedeckelt bei
+         `FIELDS_GAP_MAX_MM`; ohne Restplatz bleibt es bei `FIELDS_GAP_MM`. */
+      const cs = getComputedStyle(fields);
+      const boxH = fields.clientHeight - parseFloat(cs.paddingTop) -
+        parseFloat(cs.paddingBottom);
+      const rows = [].slice.call(fields.children);
+      const contentH = rows.reduce(function (sum, node) {
+        return sum + node.getBoundingClientRect().height;
+      }, 0);
+      const gaps = Math.max(1, rows.length - 1);
+      const free = pxToMm(boxH - contentH - fieldsGapPx(fields) * gaps);
+      /* Nur verteilen, wenn wirklich Platz frei ist. `free` allein genügt
+         nicht: die Zusatzzeilen schrumpfen per `flex-shrink` mit, dadurch
+         sieht die Rechnung auch dann Luft, wenn der Block bereits zu hoch
+         ist. Deshalb zusätzlich der gemessene Überlauf. */
+      if (free > 0.05 && fieldsOverMm(fields, zoom) <= 0) {
+        const extra = Math.min(free / gaps, FIELDS_GAP_MAX_MM - gap);
+        if (extra > 0.05) {
+          fields.style.setProperty('--fields-gap', (gap + extra).toFixed(2) + 'mm');
         }
       }
 

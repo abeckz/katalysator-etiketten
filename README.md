@@ -65,17 +65,40 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   leere Zeilen bleiben leer, Bildschirm und Druck sind dadurch identisch.
 * „ex Produktion“ und die drei Zusatzzeilen bilden **eine** gemeinsame
   Klammer (`.lrow--group`); die eingerückten Zeilen darin haben keine eigene
-  Klammer. Die Gruppe ist eine Flex-Spalte: jede Zusatzzeile ist leer 8,6 mm
-  hoch (Schreibplatz) und 11 mm, sobald Text darin steht
+  Klammer. Die Gruppe ist eine Flex-Spalte: jede Zusatzzeile ist leer 11,4 mm
+  hoch (Schreibplatz) und 13,8 mm, sobald Text darin steht
   (`.lrow--extra:has(> .lrow__v:not(:empty))`). Die Klammer wächst dadurch
   sichtbar mit dem Inhalt, die GHS-Gruppe bleibt davon unberührt.
-* Die Feldspalte ist nach unten ausgerichtet (`justify-content:flex-end`),
-  damit der Block bündig über der Empfängerbox steht. Reicht der Platz mit
-  allen drei Zusatzzeilen nicht (148,5-mm-Etikett), staucht
-  `alignFieldsTop()` die Gruppenklammer schrittweise so weit, bis die Spalte
-  nicht mehr überläuft (`GROUP_MIN_MM` = 18 mm als Untergrenze; `--fields-top`
-  bleibt dann 0, `OVER_MM` = 0,15 mm fängt die Pixelrundung ab). Die Klammer
-  bleibt als Ganzes sichtbar, nichts wird angeschnitten.
+* Der Gruppencontainer hat links **keine** eigene Polsterung – der 5,6-mm-
+  Vorsprung kommt von der inneren Zeile (`.lrow--row`) bzw. von
+  `.lrow--extra`. Dadurch stehen „ex Produktion“ und die Zusatzzeilen exakt
+  bündig unter „aus Ofen“ (vorher rutschte der Block um 5,6 mm nach rechts).
+  `node .build/gap-check.js` prüft das („Feldspalte bündig in x“).
+* Der Zeilenabstand **innerhalb** der Gruppe ist gleichmäßig: „ex Produktion“
+  trägt unten `padding-bottom:6.9mm`, die Zusatzzeilen haben `margin-top:0`
+  und ihre Höhe (leer 13,4 mm, gefüllt 15,5 mm) enthält dieselbe Luft. Vorher
+  saß zwischen Wert und erster Zusatzzeile mehr Abstand als zwischen den
+  Zusatzzeilen, weil deren Kastenhöhe die Textzeile überragte.
+  `node .build/fill-measure.js` misst das („Zeilenabstaende … | Streuung …“).
+* Die Gruppenklammer liegt mit `left:0` am linken Rand der Gruppenbox –
+  ein negativer Wert würde den Strich aus dem Kasten schieben, wo ihn
+  `.label__fields{overflow:hidden}` abschneidet. Die Bögen bleiben frei, weil
+  `::before` um 0,9 mm nach oben/unten aufgeweitet ist
+  (`margin-top/-bottom:-.9mm`) und die Gruppe selbst **kein**
+  `overflow:hidden/clip` trägt.
+* Die Feldspalte beginnt oben (`justify-content:flex-start`, `--fields-top`
+  = 6 mm); die GHS-Gruppe wird über `--fields-shift` in die Etikettenmitte
+  gerückt. Reicht der Platz mit allen drei Zusatzzeilen nicht (kurzes
+  Etikett), verkleinert `alignFieldsTop()` zuerst den Zeilenabstand bis
+  `FIELDS_GAP_MIN_MM` und staucht danach die Gruppenklammer – Untergrenze ist
+  `GROUP_MIN_MM` = natürliche Höhe minus Zeilenabstand plus Mindestabstand,
+  damit zum oberen Bogen und zur Empfängerbox rund 2,2 mm Luft bleiben.
+  Gemessen wird über die Kinder, nicht über `scrollHeight`: `.label__fields`
+  hat `overflow:hidden` und meldet sonst immer `scrollHeight == clientHeight`.
+* Ist danach Platz übrig, verteilt `alignFieldsTop()` ihn gleichmäßig auf die
+  Abstände der Feldspalte (gedeckelt bei `FIELDS_GAP_MAX_MM` = 6 mm). Vorher
+  sammelte sich die ganze Restluft als eine große Lücke zwischen
+  Gruppenklammer und Empfängerbox.
 * Am Bildschirm zeigt die Vorschau **ein** Etikett (`@media screen` blendet
   `label[data-index="1"]` aus); gedruckt werden weiterhin **beide**.
 
@@ -142,6 +165,10 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | `embed-official.js` | schreibt Symbol + Raute aus `.ghs-official/` in die HTML-Datei |
 | `compare-embedded.js` | vergleicht die eingebetteten Pfade zeichengenau mit den Originalen |
 | `tile-check.js` | prüft je Raute: deckendes Weiß, roter Rand, Symbol deckend schwarz |
+| `gap-check.js` | Layout-Prüfungen: x-Bündigkeit der Feldspalte, Luft zwischen den Klammerbögen, keine Überläufe |
+| `bracket-check.js` | prüft Aufbau/Geometrie der C-Klammern (eine Klammer je Feld, Gruppenklammer wächst mit) |
+| `extra-rows-check.js` | prüft die drei Zusatzzeilen (leer, ohne Unterstrich, gemeinsame Klammer, Druck = 1 Seite) |
+| `fill-measure.js` | füllt alle Felder + Zusatzzeilen und misst Gruppenklammer, Zeilenabstände und Überlauf (A4 + 140 mm) |
 | `picker-shot.js`, `editor-shot.js` | Screenshots der GHS-Auswahl bzw. des Editors (hell/dunkel) |
 | `fix-encoding.js`, `repair-mojibake.js` | Encoding-Reparaturen (idempotent) |
 

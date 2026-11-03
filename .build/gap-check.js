@@ -58,6 +58,36 @@ const probe = `
     [].slice.call(grp.querySelectorAll('*')).filter(function (n) {
       return parseFloat(getComputedStyle(n, '::before').borderLeftWidth) > 0;
     }).length);
+  /* x-Ausrichtung: die linken Raender von Beschriftung und Wert muessen auf
+     einer Linie mit den uebrigen Feldern liegen (die Gruppenklammer ist
+     genauso breit wie die der Einzelfelder). */
+  var xs = [].slice.call(fields.querySelectorAll('.lrow, .lrow--row')).map(function (row) {
+    return r(row).left - lb.left;
+  });
+  var lefts = [].slice.call(fields.querySelectorAll('.lrow__k')).map(function (n) {
+    return r(n).left - lb.left;
+  });
+  /* Zusatzzeilen: ohne Inhalt ist der Wert so breit wie sein Inhalt (0 px),
+     gemessen wird dann die Textkante des Zeilenkastens (Kastenrand + Führung
+     bis zum Textbeginn). */
+  var LEAD = getComputedStyle(fields.querySelector('.lrow')).getPropertyValue('--bracket-lead').trim();
+  LEAD = LEAD ? parseFloat(LEAD) * (96 / 25.4) : 18.9;
+  [].slice.call(fields.querySelectorAll('.lrow--extra > .lrow__v')).forEach(function (v) {
+    var p = v.parentElement;
+    var b = r(v);
+    lefts.push(b.width > 2
+      ? b.left - lb.left
+      : r(p).left - lb.left + LEAD);
+  });
+  out.push('x-Buendigkeit: Zeilen links ' + xs.map(mm).join(', ') + 'mm | Textkanten ' +
+    lefts.map(mm).join(', ') + 'mm | Streuung ' +
+    mm(Math.max.apply(null, lefts) - Math.min.apply(null, lefts)) + 'mm');
+  out.push('Gruppenkinder: ' + [].slice.call(fields.querySelectorAll('.lrow--group *')).map(function (n) {
+    var b = r(n);
+    var cs = getComputedStyle(n);
+    return (n.className || '(kein class)') + '@' + mm(b.left - lb.left) + ' w' + mm(b.width) +
+      ' pl' + mm(parseFloat(cs.paddingLeft)) + ' d' + cs.display;
+  }).join(' | '));
   var first = boxes[0];
   var last = boxes[boxes.length - 1];
   out.push('Etikett: h ' + mm(lb.height) + 'mm | 1. Klammerbogen ' +
@@ -98,7 +128,10 @@ const labelH = parseFloat((posLine.match(/h ([\d.]+)mm/) || [])[1]);
 const colLine = (out.match(/Feldspalte: ([^\n]*)/) || [])[1] || '';
 const rest = parseFloat((colLine.match(/scrollH-clientH ([\d.-]+)mm/) || [])[1]);
 const recBottom = parseFloat((colLine.match(/Empfaenger unten ([\d.]+)mm/) || [])[1]);
+/* Streuung der linken Textkanten („ex Produktion“ vs. die übrigen Felder) */
+const colSpread = parseFloat((out.match(/Streuung ([\d.]+)mm/) || [])[1]);
 const checks = [
+  ['Feldspalte bündig in x (alle Textkanten auf einer Linie)', colSpread <= 0.3],
   ['mindestens 1 mm Luft zwischen allen Klammerbögen',
     gapsMm.length >= 3 && gapsMm.every((v) => v >= 1)],
   ['genau eine Klammer an der Gruppe, Innenzeilen ohne',
