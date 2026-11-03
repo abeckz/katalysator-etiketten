@@ -385,8 +385,14 @@ select option{background-color:var(--surface);color:var(--ink)}
    die Gruppe steht dadurch zwangsläufig in der Etikettenmitte. */
 .label__right{
   flex:1 1 auto;min-width:0;height:100%;
+  position:relative;
   display:grid;
-  grid-template-columns:auto minmax(0,1fr);
+  /* Die Datenspalte hat eine feste Mindestbreite (56 mm) und ist so breit wie
+     nötig – der Textblock darf also nicht über seinen Inhalt hinauswachsen
+     (die Werte laufen bis unter das Klammerende, reichen aber nicht weiter).
+     `max-content` statt `auto`: sonst zöge ein breiter Wert die Spalte auf
+     und drückte die GHS-Gruppe an den Rand. */
+  grid-template-columns:minmax(56mm, max-content) minmax(0,1fr);
   grid-template-rows:minmax(0,1fr) auto;
   grid-template-areas:
     "fields ghs"
@@ -394,47 +400,129 @@ select option{background-color:var(--surface);color:var(--ink)}
   align-items:start;
   column-gap:4mm;
   row-gap:2.4mm;
+  /* Der Textblock soll im Ganzen etwas tiefer stehen (sonst schneidet der
+     5-mm-Rand die oberste Klammer an); die Unterkante bleibt dabei fest
+     (`justify-content:flex-end` in `.label__fields`). Damit das gelingt,
+     ohne eine feste Größe zu opfern, bezieht sich die Mittelachse der
+     GHS-Gruppe auf eine Fläche, die um `--fields-shift` nach unten versetzt
+     ist: der untere Rand der Fläche ist die Unterkante des TEXTBLOCKS bzw.
+     der Empfängerbox (je nachdem, was tiefer liegt). Der Textblock rückt also
+     nach oben, soweit es der Platz hergibt – ohne dass die GHS-Gruppe
+     verrutscht und ohne feste mm-Werte, die bei langen Namen brechen. */
   padding:0;                          /* Rand kommt vom Etikett (5 mm) */
-  --ghs-top:0mm;                      /* per JS gesetzt */
+  --ghs-top:0mm;                      /* Freiraum über der GHS-Gruppe, per JS */
+  --fields-shift:0px;                 /* Versatz der Bezugsfläche, per JS */
+}
+/* GHS-Gruppe tiefer legen mit einer Bezugsfläche, die die Zusatzzeilen
+   einschließt: die Gruppe steht dann auch bei gefüllten Zusatzzeilen mittig
+   zur Restfläche und läuft nicht in die Unterkante des Etiketts. */
+.label__right::before{
+  content:"";
+  position:absolute;left:0;right:0;top:0;bottom:0;
+  pointer-events:none;
+  margin-bottom:var(--fields-shift, 0px);
 }
 /* Felder: Katalysator, Ausbaudatum, aus Ofen, ex Produktion und die drei
-   Zusatzzeilen (Leerzeilen, nur mit Unterstrich) untereinander.
+   Zusatzzeilen untereinander. Jede Zeile ist links mit einer C-förmigen,
+   hellgrauen Klammer eingefasst (Beschriftung + Wert), Unterstreichungen
+   unter den Werten gibt es nicht mehr.
    Die Spalte bleibt kompakt (rund 60–72 mm); die Zeilen sind nur so hoch
    wie ihr Inhalt, deshalb stehen die Werte dicht beieinander.
    `gap` wirkt hier als Zeilenabstand der Felder – der 2,4-mm-Abstand zur
    Empfängerbox kommt vom Raster (row-gap), damit die Felder nicht in die
-   Empfängerzeile wachsen. */
+   Empfängerzeile wachsen. 3,6 mm Abstand: die C-Klammern ragen je 0,9 mm
+   über ihre Zeile hinaus, zwischen den Bögen bleibt so rund 1,8 mm Luft
+   (Bögen überlappen nicht mehr).
+   Der Block beginnt oben und steht NICHT mittig in der Spalte:
+   `padding-top` (= `--fields-top`) rückt ihn um einen festen Versatz unter
+   die 5-mm-Randkante des Etiketts (Standard 6 mm). Nur wenn die oberste
+   Klammer („Katalysator“) dort angeschnitten würde, vergrößert
+   `alignFieldsTop()` den Versatz schrittweise – der Block geht also
+   ausschließlich weiter nach unten, nie nach oben.
+   Reicht der Platz trotzdem nicht (langer Katalysatorname + gefüllte
+   Zusatzzeilen), verkleinert `alignFieldsTop()` zuerst den Zeilenabstand
+   (`--fields-gap`, mindestens `FIELDS_GAP_MIN_MM`) – erst danach wird die
+   Gruppenklammer gestaucht. */
 .label__fields{
   grid-area:fields;
+  --fields-gap:3.6mm;
   min-width:0;
   align-self:stretch;
   display:flex;flex-direction:column;justify-content:flex-start;
-  gap:2.6mm;
+  gap:var(--fields-gap, 3.6mm);
+  padding-top:var(--fields-top, 6mm);
   overflow:hidden;
 }
 /* Zeilen: Beschriftung oben, Wert darunter – jede Zeile so hoch wie ihr
-   Inhalt, die Werte stehen also kompakt beieinander. */
+   Inhalt, die Werte stehen also kompakt beieinander.
+   JEDE Zeile trägt links eine C-förmige, hellgraue Klammer, die Beschriftung
+   und Wert umschließt – man erkennt dadurch auf einen Blick, was
+   zusammengehört. Unterstreichungen unter den Werten gibt es nicht mehr. */
 .label__fields > .lrow{flex:0 0 auto}
-.lrow{display:flex;flex-direction:column;gap:1mm;min-width:0}
+.lrow,
+.lrow--row{
+  display:flex;flex-direction:column;gap:1mm;min-width:0;
+  position:relative;
+  padding-left:5.6mm;              /* Platz für die Klammer links */
+  box-sizing:border-box;           /* Polsterung zählt in die Zeilenhöhe */
+}
+/* C-förmige Klammer: linker Strich + zwei Bögen oben/unten, die rund 2 cm
+   nach rechts laufen (`--bracket-reach`). Die Bögen haben eine FESTE Höhe
+   (Radius 1,8 mm je Ecke, 3,6 mm Bogenhöhe) – bei hohen Feldern
+   (Katalysator, Ausbaudatum, ex Produktion) bleiben sie dadurch klar als C
+   erkennbar und laufen nicht zu flachen Haken aus. Die Klammer ragt
+   oben/unten leicht über die Zeile hinaus, damit die Bogenenden nicht
+   abgeschnitten werden.
+   Etwas dicker und hellgrau, damit die schwarzen Werte dominieren.
+   Die Strichlänge (`--bracket-lead`) ist der Abstand ab dem linken
+   Klammerstrich, in dem die Werte beginnen (s. `.lrow__v`). */
+.lrow{
+  --bracket-reach:20mm;           /* Bögen laufen 2 cm nach rechts */
+  --bracket-lead:5mm;             /* Abstand Strich -> Textbeginn */
+}
+.lrow::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:calc(var(--bracket-lead) + var(--bracket-reach, 0mm));
+  border:0 solid #b9bec6;        /* hellgrau, 0,8 mm */
+  border-left-width:.8mm;
+  border-top-width:.8mm;
+  border-bottom-width:.8mm;
+  border-right-width:0;
+  border-radius:1.8mm 0 0 1.8mm;
+  margin-top:-.9mm;
+  margin-bottom:-.9mm;
+  box-sizing:border-box;
+  pointer-events:none;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
 .lrow__k{
   font-size:3mm;line-height:1.1;font-weight:700;
   letter-spacing:.15em;text-transform:uppercase;color:#000;
 }
-/* Werte: linksbuendig, volle Feldbreite, Ziffern gleich breit (Datum/Charge
-   stehen dadurch ruhig untereinander). `--vmax` begrenzt die Breite je Feld. */
+/* Werte: linksbuendig, Ziffern gleich breit (Datum/Charge stehen dadurch
+   ruhig untereinander). `--vmax` begrenzt die Breite je Feld.
+   Keine Unterstreichung mehr – die Zuordnung zeigt die C-Klammer.
+   Die Werte laufen bis unter das Ende der Klammerbögen: die Feldspalte ist
+   nur rund 72 mm breit, die Bögen reichen aber 20 mm über sie hinaus –
+   deshalb `calc(100% + 20mm)` (der Textblock wird dabei so breit wie die
+   Klammer und schiebt sich in die GHS-Spalte, die rechts genug frei hat). */
 .lrow__v{
-  width:100%;max-width:var(--vmax, 72mm);
+  width:calc(100% + var(--bracket-reach, 0mm));
+  max-width:var(--vmax, calc(72mm + var(--bracket-reach, 0mm)));
   font-size:7.8mm;line-height:1.16;font-weight:700;
   font-variant-numeric:tabular-nums;
-  border-bottom:.4mm solid;
-  border-bottom-color:currentColor;
-  padding-bottom:1.2mm;
+  padding-bottom:0;
   overflow-wrap:anywhere;
   hyphens:auto;
   color:#000;
 }
-/* Katalysator: kurz (unter 15 Zeichen) und einzeilig – der Name bleibt in
-   einer Zeile, die Zeile ist so breit wie der Text (Unterstrich darunter) */
+/* Katalysator: einzeilig – der Name bleibt in einer Zeile, die Zeile ist so
+   breit wie der Text (höchstens bis zum Klammerende, sonst „…“) */
 .lrow__v[data-f="catalyst"]{
   width:min(max-content,100%);
   max-width:100%;
@@ -443,43 +531,105 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 .lrow__v[data-f="catalyst"]:empty{width:100%}
 /* Datum: Zahl + Monat ohne Umbruch, kompakt (rund 30 mm) */
-.lrow__v[data-f="date"]{width:auto;white-space:nowrap;max-width:34mm;font-size:6.6mm}
+.lrow__v[data-f="date"]{width:auto;white-space:nowrap;max-width:calc(34mm + var(--bracket-reach, 0mm));font-size:6.6mm}
 /* Ofen: kurzer Code, nicht umbrechen */
-.lrow__v[data-f="furnace"]{width:auto;white-space:nowrap;max-width:40mm;font-size:7mm}
+.lrow__v[data-f="furnace"]{width:auto;white-space:nowrap;max-width:calc(40mm + var(--bracket-reach, 0mm));font-size:7mm}
 /* ex Produktion: bis zu zwei Zeilen mit Umbruch */
-.lrow__v[data-f="production"]{max-width:72mm;max-height:20mm;overflow:hidden}
+.lrow__v[data-f="production"]{
+  max-width:calc(72mm + var(--bracket-reach, 0mm));
+  max-height:20mm;overflow:hidden;
+}
 
-/* Zusatzzeilen („neue Zeile 1–3“): reine Schreiblinien ohne Beschriftung,
-   nur mit Unterstrich. Platzhalter bleiben leer, damit beim Drucken – anders
-   als bei `placeholder` – garantiert nichts mitgedruckt wird; die Texte
-   hängen ausschließlich am CSS `::after` (nie im Druck enthalten). */
-.lrow__v[data-f="extra1"],
-.lrow__v[data-f="extra2"],
-.lrow__v[data-f="extra3"]{
-  width:100%;                     /* leere Schreiblinie: volle Spaltenbreite,
-                                     sonst kollabiert die Breite auf 0 (leer)
-                                     und der Unterstrich wäre unsichtbar */
+/* ex Produktion + die drei Zusatzzeilen = EINE gemeinsame C-Klammer.
+   Die Klammer sitzt am Gruppencontainer, die eingerückten Zeilen selbst
+   tragen keine; dadurch läuft sie als ein durchgehendes C von
+   „ex Produktion“ bis zur letzten Zusatzzeile.
+   WICHTIG: der Container heißt zwar `.lrow--group`, trägt die Klammerklasse
+   `.lrow` aber NICHT – sonst bekäme er eine zweite Klammer (und der innere
+   Block um „ex Produktion“ wäre ebenfalls ein `.lrow` mit eigener Klammer,
+   also drei C übereinander). Deshalb hier ein eigenes `::before`.
+   Die Klammer wächst in der Höhe mit: sie umschließt Überschrift, Wert und
+   die Schreibzeilen. Die drei Schreibzeilen sind leer 8,6 mm hoch und werden
+   mit Inhalt eine Zeile höher (rund 11 mm) – die Gruppe (und damit die
+   Klammer) dehnt sich also, sobald eine Zusatzzeile beschrieben wird.
+   Leere Zeilen bleiben als Schreibplatz erhalten, Bildschirm und Druck sind
+   dadurch identisch. */
+.lrow--group{
+  display:flex;flex-direction:column;gap:1mm;min-width:0;
+  flex:0 1 auto;min-height:0;
+  position:relative;
+  /* Platz links für die Klammer (wie `.lrow`) und oben/unten so viel, dass
+     der obere Bogen die Überschrift „ex Produktion“ nicht berührt und der
+     untere Bogen unter der letzten Schreibzeile liegt. */
+  padding:.9mm 0 .9mm 5.6mm;
+  box-sizing:border-box;
+}
+/* Gemeinsame Klammer der Gruppe: gleiche Optik wie `.lrow::before`
+   (0,8 mm, hellgrau, fester Bogenradius 1,8 mm, Bögen 2 cm nach rechts). */
+.lrow--group::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:calc(var(--bracket-lead, 5mm) + var(--bracket-reach, 20mm));
+  border:0 solid #b9bec6;
+  border-left-width:.8mm;
+  border-top-width:.8mm;
+  border-bottom-width:.8mm;
+  border-right-width:0;
+  border-radius:1.8mm 0 0 1.8mm;
+  box-sizing:border-box;
+  pointer-events:none;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+.lrow--extra{
+  display:block;                           /* nur Wert, keine Beschriftung */
+  /* Höhe als Flex-Basis: leer = 8,6 mm Schreibplatz, mit Inhalt 11 mm.
+     `flex-shrink:1` mit `min-height:0` lässt die Zeilen bei Platznot flacher
+     werden, statt den Block über die verfügbare Höhe hinauszudrücken (sonst
+     würde der obere Klammerbogen angeschnitten). */
+  flex:0 1 8.6mm;
+  min-height:0;
+  overflow:hidden;
+  padding-left:var(--bracket-lead, 5mm);
+  margin-top:1mm;
+}
+.lrow--extra:first-of-type{margin-top:1.2mm}
+/* Steht Text in der Zeile, wächst sie auf die Höhe einer normalen Wertzeile –
+   die gemeinsame Klammer bekommt dadurch sichtbar mehr Höhe. */
+.lrow--extra:has(> .lrow__v:not(:empty)){flex-basis:11mm}
+/* Leere Zusatzzeilen bleiben als Schreibplatz reserviert. Damit sie den
+   Textblock aber nicht über die verfügbare Höhe hinaus drücken (dann wäre der
+   obere Klammerbogen angeschnitten), geben sie bei Platznot nach: der
+   Block darf schrumpfen, die Zeilen werden entsprechend flacher.
+   Die Flex-Basis der Gruppe entspricht der Summe ihrer Zeilen; sie ist der
+   Startwert, den `alignFieldsTop()` nur bei Überlauf verkleinert. */
+.label__fields > .lrow--group{
+  flex:0 1 auto;
+  min-height:0;
+}
+/* Die Gruppenklammer darf nicht über die Spalte hinauswachsen: wird sie
+   gestaucht, verschwinden die überzähligen Zeilen hinter dem unteren Bogen
+   (die Klammer bleibt als Ganzes sichtbar, nichts wird angeschnitten). */
+.label__fields > .lrow--group{overflow:hidden}
+.lrow--group > .lrow--extra{min-height:0}
+.lrow--extra > .lrow__v{
+  display:block;
+  height:100%;
+  line-height:1;
+  width:100%;
   max-width:100%;
   white-space:nowrap;
-  min-height:8.6mm;              /* gleiche Zeilenhöhe wie ein Wert */
+  text-overflow:ellipsis;
   font-size:6.8mm;
 }
-/* dünnere Schreiblinie als bei den Werten (0,4 mm -> 0,3 mm):
-   ein 0,15 mm hoher Balken mittig auf der Wertelinie */
-.lrow__v[data-f="extra1"],
-.lrow__v[data-f="extra2"],
-.lrow__v[data-f="extra3"]{
-  border-bottom-width:.15mm;
-  padding-bottom:1.45mm;
-}
-.lrow__v[data-f="extra1"]:empty::after{content:"Zeile 1"}
-.lrow__v[data-f="extra2"]:empty::after{content:"Zeile 2"}
-.lrow__v[data-f="extra3"]:empty::after{content:"Zeile 3"}
-/* Platzhalter nur am Bildschirm zeigen – nie im Druck */
 @media print{
-  .lrow__v[data-f="extra1"]:empty::after,
-  .lrow__v[data-f="extra2"]:empty::after,
-  .lrow__v[data-f="extra3"]:empty::after{content:""}
+  .lrow::before,
+  .lrow--group::before{
+    border-color:#b9bec6;
+  }
 }
 
 /* GHS-Bereich: Rauten oben, Signalwort zentriert darunter.
@@ -871,23 +1021,20 @@ select option{background-color:var(--surface);color:var(--ink)}
           </label>
           <input class="input" type="text" id="fProduction" name="production" maxlength="60">
         </div>
+        <!-- Zusatzzeilen: bewusst OHNE sichtbare Feldüberschrift. Der
+             zugängliche Name steht nur in `aria-label`, damit Screenreader
+             die drei Felder weiterhin unterscheiden können. -->
         <div class="field">
-          <label class="field__label" for="fExtra1">
-            <span>Zusatzzeile 1</span>
-          </label>
-          <input class="input" type="text" id="fExtra1" name="extra1" maxlength="60">
+          <input class="input" type="text" id="fExtra1" name="extra1" maxlength="60"
+                 aria-label="Zusatzzeile 1">
         </div>
         <div class="field">
-          <label class="field__label" for="fExtra2">
-            <span>Zusatzzeile 2</span>
-          </label>
-          <input class="input" type="text" id="fExtra2" name="extra2" maxlength="60">
+          <input class="input" type="text" id="fExtra2" name="extra2" maxlength="60"
+                 aria-label="Zusatzzeile 2">
         </div>
         <div class="field">
-          <label class="field__label" for="fExtra3">
-            <span>Zusatzzeile 3</span>
-          </label>
-          <input class="input" type="text" id="fExtra3" name="extra3" maxlength="60">
+          <input class="input" type="text" id="fExtra3" name="extra3" maxlength="60"
+                 aria-label="Zusatzzeile 3">
         </div>
       </form>
 
@@ -921,7 +1068,8 @@ select option{background-color:var(--surface);color:var(--ink)}
         <div class="label__lefttext" data-f="title"><span>Ausbau</span> <span>Katalysator</span></div>
       </div>
       <div class="label__right">
-        <!-- links: alle Felder untereinander (rechts der Trennlinie) -->
+        <!-- links: alle Felder untereinander (links jeweils mit C-förmiger
+             Klammer, die Beschriftung und Wert zusammenhält) -->
         <div class="label__fields">
           <div class="lrow">
             <div class="lrow__k">Katalysator</div>
@@ -935,22 +1083,28 @@ select option{background-color:var(--surface);color:var(--ink)}
             <div class="lrow__k">aus Ofen</div>
             <div class="lrow__v" data-f="furnace"></div>
           </div>
-          <div class="lrow">
-            <div class="lrow__k">ex Produktion</div>
-            <div class="lrow__v" data-f="production"></div>
-          </div>
-          <!-- drei weitere Zeilen direkt unter „ex Produktion“: reine
-               Schreiblinien (nur Unterstrich, keine Beschriftung). Der
-               Platzhalter „Zeile 1–3“ steht ausschließlich im CSS und
-               erscheint nur am Bildschirm, niemals im Druck. -->
-          <div class="lrow lrow--extra">
-            <div class="lrow__v" data-f="extra1"></div>
-          </div>
-          <div class="lrow lrow--extra">
-            <div class="lrow__v" data-f="extra2"></div>
-          </div>
-          <div class="lrow lrow--extra">
-            <div class="lrow__v" data-f="extra3"></div>
+          <!-- „ex Produktion“ + die drei Zusatzzeilen bilden EINE gemeinsame
+               C-förmige Klammer: die Klammer sitzt am Gruppencontainer
+               (`.lrow--group`, ohne die Klammerklasse `.lrow`), die
+               eingerückten Zeilen selbst haben keine. Dadurch umschließt ein
+               durchgehendes C von der Überschrift „ex Produktion“ über den
+               Wert bis zur letzten Schreibzeile – und wächst in der Höhe mit.
+               Die Schreibzeilen haben keine Beschriftung, keinen Unterstrich
+               und keinen Platzhaltertext. -->
+          <div class="lrow--group">
+            <div class="lrow--row">
+              <div class="lrow__k">ex Produktion</div>
+              <div class="lrow__v" data-f="production"></div>
+            </div>
+            <div class="lrow--extra">
+              <div class="lrow__v" data-f="extra1"></div>
+            </div>
+            <div class="lrow--extra">
+              <div class="lrow__v" data-f="extra2"></div>
+            </div>
+            <div class="lrow--extra">
+              <div class="lrow__v" data-f="extra3"></div>
+            </div>
           </div>
         </div>
         <!-- rechts: GHS-Gruppe mit Signalwort darunter, darunter die Empfängerbox -->
@@ -1582,6 +1736,7 @@ select option{background-color:var(--surface);color:var(--ink)}
         }
       });
     });
+    alignFieldsTop();
     alignGhsMid();
   }
 
@@ -1622,10 +1777,16 @@ select option{background-color:var(--surface);color:var(--ink)}
          füllt sie exakt aus – der 5-mm-Rand liegt innen (s. buildLabels).
          Nicht über `label.getBoundingClientRect()` gehen: die mm-Maße des
          Etiketts werden von Chrome auf ganze CSS-Pixel gerundet
-         (148,5 mm -> 562 px). */
+         (148,5 mm -> 562 px).
+         Die Bezugsfläche endet aber an der Unterkante des Textblocks
+         (`--fields-shift`, gesetzt von `alignFieldsTop()`): stehen in den
+         Zusatzzeilen Texte, rückt der Textblock nach oben und die
+         GHS-Gruppe folgt ihm in die Mitte der Restfläche – so kollidiert sie
+         nie mit der Empfängerbox oder der Etikettenunterkante. */
       const box = right.getBoundingClientRect();
       const innerTop = box.top;
-      const innerHeight = box.height;
+      const innerHeight = box.height -
+        (parseFloat(getComputedStyle(right).getPropertyValue('--fields-shift')) || 0);
 
       /* Obere Spitze der Gruppe = Oberkante der ersten Raute (die Raute füllt
          ihre Kachel exakt aus, s. `.ghs__dia`). Ohne Piktogramme beginnt die
@@ -1653,12 +1814,104 @@ select option{background-color:var(--surface);color:var(--ink)}
     });
   }
 
+  /* ------------------------------------------------------------------
+     Oberkante des Textblocks
+     Der Block sitzt oben in der Spalte (`justify-content:flex-start`) und
+     wird über `--fields-top` um einen festen Versatz unter die 5-mm-Randkante
+     gerückt (`FIELDS_TOP_MM` = 6 mm). Damit steht die oberste Klammer
+     („Katalysator“) frei und der Block steht ein Stück tiefer als der Rand –
+     aber NICHT mittig in der Spalte; die Position ist unabhängig vom Zoom.
+     Reicht der Platz nicht (langer Katalysatorname + gefüllte Zusatzzeilen),
+     wird zuerst der Zeilenabstand verkleinert und danach die Gruppenklammer
+     gestaucht.
+     Die Unterkante des Blocks (bzw. der Empfängerbox, je nachdem, was tiefer
+     liegt) wird als `--fields-shift` an `.label__right` gemeldet;
+     `alignGhsMid()` legt die GHS-Gruppe danach mittig in die Restfläche.
+     ------------------------------------------------------------------ */
+  /* Toleranz: der Browser rundet Millimeter auf ganze Pixel. Bei rund 4 px/mm
+     können Rechnung und Messung bis ~0,15 mm auseinanderliegen; erst darüber
+     gilt eine Spalte als überlaufend. */
+  const OVER_MM = 0.15;
+  const FIELDS_TOP_MM = 6;      /* Versatz des Blocks unter der Randkante
+                                   (bündig auf dem Rand wirkt der obere Bogen
+                                   angeschnitten) */
+  const FIELDS_GAP_MM = 3.6;    /* Zeilenabstand der Feldspalte (Luft zwischen
+                                   den Klammerbögen, s. `.label__fields`) */
+  const FIELDS_GAP_MIN_MM = 2.2;/* kleinster Zeilenabstand, bevor die
+                                   Gruppenklammer gestaucht wird */
+  const GROUP_MIN_MM = 18;      /* Notbremse: darunter wird nie gestaucht */
+  /* Die Feldspalte steht bei `justify-content:flex-start` (keine
+     Zentrierung). Reicht der Platz nicht, wird die Gruppenklammer gestaucht. */
+  function alignFieldsTop() {
+    const zoom = sheetZoom();
+    el.labels.forEach(function (label) {
+      const fields = label.querySelector('.label__fields');
+      const right = label.querySelector('.label__right');
+      if (!fields || !right) return;
+
+      /* 1. Stufe: fester Versatz unter der 5-mm-Randkante (FIELDS_TOP_MM). */
+      const boxTop = right.getBoundingClientRect().top;
+      fields.style.setProperty('--fields-top', FIELDS_TOP_MM + 'mm');
+      right.style.setProperty('--fields-shift', '0px');
+
+      /* 2. Stufe: reicht der Platz nicht (langer Katalysatorname + gefüllte
+         Zusatzzeilen), wird zuerst der Zeilenabstand bis `FIELDS_GAP_MIN_MM`
+         verkleinert. Die Bögen der C-Klammern berühren sich dann fast,
+         überlappen aber nicht.
+         Die Messung stimmt erst einen Frame nach dem Setzen der Variablen
+         (Flex-Layout) – deshalb wird bei Überlauf mindestens um einen halben
+         Millimeter verringert (kein Endlos-Pingpong). */
+      let gap = FIELDS_GAP_MM;
+      fields.style.setProperty('--fields-gap', gap + 'mm');
+      for (let step = 0; step < 8; step += 1) {
+        const over = pxToMm(fields.scrollHeight - fields.clientHeight) / zoom;
+        if (over <= OVER_MM || gap <= FIELDS_GAP_MIN_MM + 0.05) break;
+        gap = Math.max(FIELDS_GAP_MIN_MM, gap - Math.max(0.5, over + 0.2));
+        fields.style.setProperty('--fields-gap', gap.toFixed(2) + 'mm');
+      }
+      fields.style.setProperty('--fields-gap', gap.toFixed(2) + 'mm');
+
+      /* Dritte Stufe: langt auch der Mindestabstand nicht, wird die Gruppe
+         gerade so weit gestaucht, dass die Spalte nicht mehr überläuft. Die
+         natürliche Höhe bleibt die Obergrenze – ohne Überlauf wird nichts
+         gestaucht. */
+      const group = fields.querySelector('.lrow--group');
+      if (group) {
+        group.style.removeProperty('flex-basis');
+        for (let step = 0; step < 24; step += 1) {
+          const over = pxToMm(fields.scrollHeight - fields.clientHeight) / zoom;
+          if (over <= OVER_MM) break;
+          const bh = pxToMm(group.getBoundingClientRect().height) / zoom;
+          if (bh <= GROUP_MIN_MM + 0.1) break;
+          const target = Math.max(GROUP_MIN_MM, bh - Math.max(0.3, over + 0.15));
+          group.style.setProperty('flex-basis', target.toFixed(2) + 'mm');
+        }
+        /* Hat die natürliche Höhe gereicht, bleibt keine Stauchung zurück. */
+        if (pxToMm(fields.scrollHeight - fields.clientHeight) / zoom <= OVER_MM) {
+          group.style.removeProperty('flex-basis');
+        }
+      }
+
+      /* Unterkante des Blocks an die GHS-Rechnung melden: alles, was der
+         Textblock (oder die Empfängerbox) unterhalb der Etikettenoberkante
+         belegt, wird von der Bezugsfläche abgezogen. */
+      const parts = [fields, right.querySelector('.recipient')];
+      let bottom = 0;
+      parts.forEach(function (node) {
+        if (!node) return;
+        const b = node.getBoundingClientRect();
+        if (b.height > 0) bottom = Math.max(bottom, b.bottom - boxTop);
+      });
+      right.style.setProperty('--fields-shift', bottom.toFixed(2) + 'px');
+    });
+  }
+
   /* Nach jedem Neuaufbau (Schrift lädt, Fenster ändert die Skalierung)
      erneut ausrichten – die Messung ist unabhängig von der Zoomstufe. */
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () { alignGhsMid(); });
+    document.fonts.ready.then(function () { alignFieldsTop(); alignGhsMid(); });
   }
-  window.addEventListener('resize', alignGhsMid);
+  window.addEventListener('resize', function () { alignFieldsTop(); alignGhsMid(); });
 
   /* kein Signalwort-Panel mehr: das Signalwort steht ausschließlich im
      fertigen Etikett (Vorschau + Druck). */
@@ -1766,8 +2019,10 @@ select option{background-color:var(--surface);color:var(--ink)}
       el.sheetFit.style.height = shownH + 'px';
     }
 
-    /* Die Mittelachse der GHS-Gruppe hängt nicht vom Zoom ab – hier nur
-       einmal neu bestimmen, damit nach dem Layoutwechsel nichts verrutscht. */
+    /* Die Mittelachse der GHS-Gruppe und die Oberkante des Textblocks hängen
+       nicht vom Zoom ab – hier nur einmal neu bestimmen, damit nach dem
+       Layoutwechsel nichts verrutscht. */
+    alignFieldsTop();
     alignGhsMid();
   }
 
@@ -2228,7 +2483,9 @@ select option{background-color:var(--surface);color:var(--ink)}
 
   window.addEventListener('beforeprint', function () {
     applyPrintStyles();
-    /* Druckmaßstab: Mittelachse neu bestimmen (Zoom = 1) */
+    /* Druckmaßstab: Oberkante des Textblocks + Mittelachse neu bestimmen
+       (Zoom = 1) */
+    alignFieldsTop();
     alignGhsMid();
   });
   window.addEventListener('afterprint', function () {
@@ -2236,6 +2493,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     clearPrintStyles();
     fitSheet();
     /* Zurück auf Vorschau-Maßstab */
+    alignFieldsTop();
     alignGhsMid();
   });
 

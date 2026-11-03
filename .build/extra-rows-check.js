@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Build-Hilfsskript (nicht Teil der App):
  *   node .build/extra-rows-check.js
  * Prüft
@@ -7,7 +7,8 @@
  *  - dass im Druck BEIDE Etiketten auf einer A4-Seite stehen,
  *  - dass die Feldspalte mit den Zusatzzeilen im Etikett bleibt,
  *  - dass kein Signalwort-Panel mehr im Formular steht,
- *  - dass der Platzhalter „Zeile n“ nicht im Druck erscheint.
+ *  - dass weder Platzhalter „Zeile n“ noch Unterstreichung an den
+ *    Zusatzzeilen hängen und links die C-förmige Klammer sitzt.
  * Screenshots: .build/out/rows-screen.png, rows.pdf
  */
 const fs = require('fs');
@@ -60,45 +61,88 @@ const probe = `
   }
   var l0 = document.querySelector('.label[data-index="0"]');
   var l1 = document.querySelector('.label[data-index="1"]');
+  /* Erst nach zwei Frames messen: die App richtet die Felder in
+     alignFieldsTop() aus, das Layout steht erst im Folgeframe fest. Faengt
+     ein Schritt einen Fehler, wird er ausgegeben statt still zu scheitern. */
+  setTimeout(function () {
+    setTimeout(function () {
+      try { run(); } catch (e) { log.push('FEHLER: ' + e.message); paint(); }
+    }, 250);
+  }, 250);
+  function run() {
   var right = l0.querySelector('.label__right');
   var fields = l0.querySelector('.label__fields');
   var rec = l0.querySelector('.recipient');
-  var rs = fs(right), ffs = fs(fields), rcs = fs(rec);
-  var padY = parseFloat(rs.paddingTop) + parseFloat(rs.paddingBottom);
-  var avail = right.clientHeight - padY;              /* Innenhöhe für die Zeilen */
+  var rs = fs(right), rcs = fs(rec);
+  var ffs = fs(fields);
   var gap = parseFloat(ffs.rowGap) || 0;              /* row-gap des Etikettenrasters */
-  var used = fields.offsetHeight + gap + rec.offsetHeight;
+  /* Die Feldspalte laeuft im Koordinatensystem des Vorschau-Zooms
+     (transform: scale(--zoom)): clientHeight/offsetHeight sind dort noch
+     NICHT skaliert, die Sicht-Masse (getBoundingClientRect) schon. Deshalb
+     wird die Innenhoehe aus der Sicht-Hoehe geteilt durch den Zoom geholt. */
+  var zf = parseFloat(sc());
+  zf = zf > 0 ? zf : 1;
+  var MM_PER_PX = 25.4 / 96;
+  var avail = r(right).height / zf;
+  var fieldsH = fields.offsetHeight;
+  var recH = rec.offsetHeight;
+  var used = fieldsH + gap + recH;
   log.push('label0=' + fs(l0).display + ' label1=' + fs(l1).display);
   log.push('zoom=' + (sc() || '(nicht gesetzt)') + '  (Skalierung der Live-Vorschau)');
   log.push('sumWord=' + (document.getElementById('sumWord') ? 'vorhanden' : 'entfernt'));
   log.push('extra1=' + document.querySelectorAll('.label__fields [data-f="extra1"]').length +
     ' extra2=' + document.querySelectorAll('.label__fields [data-f="extra2"]').length +
     ' extra3=' + document.querySelectorAll('.label__fields [data-f="extra3"]').length);
-  log.push('Innenhoehe=' + mmPx(avail) + ' (' + right.clientHeight + 'px) | Felder=' +
-    mmPx(fields.offsetHeight) + ' | row-gap=' + mmPx(gap) + ' | Empfaenger=' +
-    mmPx(rec.offsetHeight) + ' | benoetigt=' + mmPx(used) + ' | Reserve=' +
+  log.push('Innenhoehe=' + mmPx(avail) + ' | Felder=' +
+    mmPx(fieldsH) + ' | row-gap=' + mmPx(gap) + ' | Empfaenger=' +
+    mmPx(recH) + ' | benoetigt=' + mmPx(used) + ' | Reserve=' +
     mmPx(avail - used));
-  log.push('ragtheraus=' + (used > avail + 1));
-  Array.prototype.forEach.call(l0.querySelectorAll('.label__fields > .lrow'), function (row, i) {
+  /* Kein Ueberlauf: die Feldspalte selbst darf nicht ueber ihre Innenhoehe
+     hinauswachsen (scrollHeight > clientHeight). Hinweis: avail/used oben
+     sind nur eine grobe Kontrollrechnung, weil das Etikettenraster
+     (grid-template-rows minmax(0,1fr) auto) Empfaenger und Feldspalte
+     gemeinsam verteilt. */
+  log.push('spaltenueberlauf=' + ((fields.scrollHeight - fields.clientHeight) > 1 ? 'ja' : 'nein') +
+    ' | gruppenklammer=' + (l0.querySelector('.lrow--group')
+      ? mmPx(l0.querySelector('.lrow--group').getBoundingClientRect().height / zf) : '-'));
+  Array.prototype.forEach.call(l0.querySelectorAll('.label__fields > .lrow, .label__fields > .lrow--group, .lrow--group > .lrow, .lrow--group > .lrow--extra'), function (row, i) {
     var k = row.querySelector('.lrow__k');
     var v = row.querySelector('.lrow__v');
     var cs = fs(v);
     var after = fs(v, '::after');
+    var before = fs(row, '::before');
+    /* Klammer in mm; 0 mm = keine eigene Klammer. Normalerweise 0,79 mm
+       (0,8 mm) – die Gruppe hat eine gemeinsame Klammer, ihre Zeilen keine. */
+    var bracket = ' | Klammer ' + mmv(before.borderLeftWidth) +
+      ' Bogen ' + mmv(before.width);
     log.push('Zeile ' + (i + 1) + ': h=' + mmPx(row.offsetHeight) +
       (k ? ' "' + k.textContent.trim() + '"' : ' (ohne Beschriftung)') +
       ' | Wert h=' + mmPx(v.offsetHeight) +
       ' | font ' + mmv(cs.fontSize) + ' pad ' + mmv(cs.paddingTop) +
       ' / ' + mmv(cs.paddingBottom) + ' border ' + mmv(cs.borderBottomWidth) +
       ' | Inhalt=' + (v.textContent.trim() === '' ? 'leer' : 'TEXT') +
-      ' | ::after=' + (after ? JSON.stringify(after.content) : 'keins'));
+      ' | ::after=' + (after ? JSON.stringify(after.content) : 'keins') + bracket);
   });
+  /* Feldüberschriften „Zusatzzeile n“ im Panel ürfen nicht mehr vorkommen */
+  log.push('formLabels=' + Array.prototype.map.call(
+    document.querySelectorAll('#labelForm .field__label'),
+    function (n) { return n.textContent.trim(); }).join(',') +
+    ' | extraLabels=' + document.querySelectorAll('#labelForm label[for^="fExtra"]').length);
   paint();
+  }
 })();
 </script>
 </body>`;
 
 const source = fs.readFileSync(htmlFile, 'utf8');
-fs.writeFileSync(probeFile, source.replace('</body>', probe), 'utf8');
+/* Die Sonde muss GANZ am Ende des Body stehen: die App klont die Etiketten
+   in ihren eigenen Container und blendet je nach Ansicht Etiketten ein/aus.
+   Steht die Sonde vorher, sieht sie die Etiketten aus dem bereits
+   abgeschlossenen Zustand nicht mehr (label1=none, keine Messwerte). */
+const closeBody = source.lastIndexOf('</body>');
+fs.writeFileSync(probeFile,
+  closeBody === -1 ? source + probe
+    : source.slice(0, closeBody) + probe + source.slice(closeBody), 'utf8');
 
 
 const res = spawnSync(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
@@ -114,8 +158,15 @@ const checks = [
   ['drei Zusatzzeilen je Etikett (2 Etiketten)', /extra1=2 extra2=2 extra3=2/.test(domProbe)],
   ['Signalwort-Panel entfernt', /sumWord=entfernt/.test(domProbe)],
   ['Bildschirm: nur ein Etikett sichtbar', /label0=flex label1=none/.test(domProbe)],
-  ['Felder passen ins Etikett', /ragtheraus=false/.test(domProbe)],
-  ['Zusatzzeilen sind leere Schreiblinien', /Zeile 5:[\s\S]*?Inhalt=leer[\s\S]*?Zeile 6:[\s\S]*?Inhalt=leer[\s\S]*?Zeile 7:[\s\S]*?Inhalt=leer/.test(out)]
+  ['Felder passen ins Etikett (kein Überlauf der Feldspalte)',
+    /spaltenueberlauf=nein/.test(domProbe)],
+  ['Zusatzzeilen sind leer (kein Platzhalter „Zeile n“)',
+    /Zeile 5:[\s\S]*?Inhalt=leer[\s\S]*?::after="none"[\s\S]*?Zeile 6:[\s\S]*?Inhalt=leer[\s\S]*?::after="none"[\s\S]*?Zeile 7:[\s\S]*?Inhalt=leer[\s\S]*?::after="none"/.test(out)],
+  ['Zusatzzeilen ohne Unterstrich',
+    /Zeile 5:[\s\S]*?border 0mm[\s\S]*?Zeile 6:[\s\S]*?border 0mm[\s\S]*?Zeile 7:[\s\S]*?border 0mm/.test(out)],
+  ['Gruppenklammer umfasst ex Produktion + 3 Zusatzzeilen (genau eine Klammer)',
+    /Zeile 4: h=[\d.]+mm "ex Produktion"[\s\S]*?Klammer 0.79mm Bogen 25mm[\s\S]*?Zeile 5:[\s\S]*?Klammer 0mm[\s\S]*?Zeile 6:[\s\S]*?Klammer 0mm[\s\S]*?Zeile 7:[\s\S]*?Klammer 0mm/.test(out)],
+  ['Panel: keine Feldüberschrift „Zusatzzeile n“', /extraLabels=0/.test(out)]
 ];
 
 /* Screenshot am Bildschirm + Druck-PDF */

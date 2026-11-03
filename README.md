@@ -47,15 +47,35 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
 * Der Stammdateneditor zeigt in den GHS-Kacheln dieselbe fertige Raute
   (`ghsTile`) wie Etikett und Liste – inklusive rotem Rand und weißer Fläche.
 * Das Panel „Etikettendaten“ enthält die Eingabefelder (Katalysator,
-  Ausbaudatum, aus Ofen, ex Produktion sowie die drei Zusatzzeilen 1–3);
+  Ausbaudatum, aus Ofen, ex Produktion sowie die drei Zusatzzeilen 1–3 ohne
+  eigene Überschrift);
   Signalwort und Piktogramme stehen ausschließlich im fertigen Etikett.
+* Jede Zeile der Feldspalte (Katalysator, Ausbaudatum, aus Ofen sowie die
+  Gruppe „ex Produktion“ + Zusatzzeilen) ist links mit einer **C-förmigen,
+  hellgrauen Klammer** eingefasst (`.lrow::before`, 0,8 mm Strich, Bögen nur
+  rund 2 mm nach rechts, feste Bogenhöhe). Die Klammer schließt Überschrift
+  **und** Wert ein – so ist auf einen Blick erkennbar, was zusammengehört.
+  Unterstreichungen unter den Werten gibt es nicht mehr.
 * Unter „ex Produktion“ stehen drei Freitext-Zeilen (`.lrow__v` mit
-  `data-f="extra1…extra3"`). Sie werden über die drei Eingabefelder
-  „Zusatzzeile 1–3“ im Panel befüllt und erscheinen identisch auf beiden
-  Etiketten. Bleiben sie leer, zeigt CSS über `:empty::after` den Platzhalter
-  „Zeile 1–3“ nur am Bildschirm – im Druck wird er ausgeblendet, es wird also
-  nie ein Platzhaltertext mitgedruckt. Ohne Eingabe bleibt die Schreiblinie
-  als bloßer Unterstrich stehen.
+  `data-f="extra1…extra3"`). Sie werden über die drei Felder „Zusatzzeile 1–3“
+  im Panel befüllt und erscheinen identisch auf beiden Etiketten. Die drei
+  Felder haben bewusst **keine sichtbare Überschrift** (nur `aria-label` für
+  Screenreader). Im Etikett haben die Zeilen weder Beschriftung noch
+  Unterstrich und auch keinen Platzhaltertext („Zeile 1–3“ wurde entfernt) –
+  leere Zeilen bleiben leer, Bildschirm und Druck sind dadurch identisch.
+* „ex Produktion“ und die drei Zusatzzeilen bilden **eine** gemeinsame
+  Klammer (`.lrow--group`); die eingerückten Zeilen darin haben keine eigene
+  Klammer. Die Gruppe ist eine Flex-Spalte: jede Zusatzzeile ist leer 8,6 mm
+  hoch (Schreibplatz) und 11 mm, sobald Text darin steht
+  (`.lrow--extra:has(> .lrow__v:not(:empty))`). Die Klammer wächst dadurch
+  sichtbar mit dem Inhalt, die GHS-Gruppe bleibt davon unberührt.
+* Die Feldspalte ist nach unten ausgerichtet (`justify-content:flex-end`),
+  damit der Block bündig über der Empfängerbox steht. Reicht der Platz mit
+  allen drei Zusatzzeilen nicht (148,5-mm-Etikett), staucht
+  `alignFieldsTop()` die Gruppenklammer schrittweise so weit, bis die Spalte
+  nicht mehr überläuft (`GROUP_MIN_MM` = 18 mm als Untergrenze; `--fields-top`
+  bleibt dann 0, `OVER_MM` = 0,15 mm fängt die Pixelrundung ab). Die Klammer
+  bleibt als Ganzes sichtbar, nichts wird angeschnitten.
 * Am Bildschirm zeigt die Vorschau **ein** Etikett (`@media screen` blendet
   `label[data-index="1"]` aus); gedruckt werden weiterhin **beide**.
 
