@@ -42,6 +42,9 @@
   --danger-soft:#fdecec;
   --radius:12px;
   --radius-sm:8px;
+  /* gemeinsame Maximalbreite von Kopfzeile und Arbeitsfläche; das Skript
+     hebt sie an, wenn das Fenster breiter ist (Vorschau nutzt den Platz) */
+  --shell-max:1600px;
   --shadow:0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.08);
   --font:system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -69,6 +72,7 @@
 }
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
+html,body{height:100%}
 body{
   background:var(--bg);
   color:var(--ink);
@@ -76,6 +80,20 @@ body{
   font-size:14px;
   line-height:1.45;
   -webkit-text-size-adjust:100%;
+}
+/* Das Dokument ist genau ein Fenster hoch: der Kopfbereich steht oben, die
+   Arbeitsfläche füllt den Rest. Gescrollt wird NICHT das Dokument, sondern
+   nur die beiden Panels – dadurch liegen „Etikettdaten“ und „Live-Vorschau“
+   immer vollständig im Fenster, egal wie groß es ist (auch bei 175 / 200 %
+   Browser-Zoom). Im Druck steht `height` ohnehin auf 297 mm (s. @media print),
+   dort greift diese Regel also nicht. */
+.app-shell{
+  height:100vh;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+@supports (height:100dvh){
+  .app-shell{height:100dvh}          /* mobile Browser: echte sichtbare Höhe */
 }
 h1,h2,h3,h4,p{margin:0}
 button{font:inherit;color:inherit}
@@ -86,13 +104,14 @@ input,select,textarea{font:inherit;color:inherit}
    2) Arbeitsleiste (nicht druckbar)
    --------------------------------------------------------------------------- */
 .app-bar{
-  position:sticky;top:0;z-index:40;
+  flex:0 0 auto;                    /* Kopfzeile behält ihre Höhe */
+  z-index:40;
   background:var(--surface);
   border-bottom:1px solid var(--line);
   box-shadow:0 1px 0 rgba(16,24,40,.04);
 }
 .app-bar__inner{
-  max-width:1160px;margin:0 auto;padding:10px 16px;
+  max-width:var(--shell-max, 1600px);margin:0 auto;padding:8px 16px;
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
 }
 .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
@@ -129,36 +148,67 @@ input,select,textarea{font:inherit;color:inherit}
 
 /* ---------------------------------------------------------------------------
    3) Arbeitsfläche: links Eingaben, rechts Vorschau
+   Die Fläche füllt die Höhe, die der Kopfbereich im Fenster übrig lässt
+   (`.app-shell` ist eine Flex-Spalte). Beide Spalten sind gleich hoch; die
+   Panel-Inhalte scrollen bei Bedarf intern, die Boxen selbst berühren aber
+   nie den Fensterrand – auch bei 175 / 200 % Zoom nicht.
+   Die Spalten sind flexibel: links so breit wie nötig (320–420 px), rechts
+   bekommt die Vorschau den Rest. `--shell-max` folgt der Fensterbreite.
    --------------------------------------------------------------------------- */
 .workspace{
-  max-width:1160px;margin:0 auto;padding:18px 16px 48px;
-  display:grid;grid-template-columns:minmax(320px, 392px) minmax(0, 1fr);
-  gap:18px;align-items:start;
+  width:100%;
+  max-width:var(--shell-max, 1600px);
+  margin:0 auto;padding:14px 16px 16px;
+  flex:1 1 auto;min-height:0;          /* nimmt den Rest der Fensterhöhe */
+  display:grid;grid-template-columns:minmax(320px, 420px) minmax(0, 1fr);
+  gap:16px;align-items:stretch;
 }
-@media (max-width:980px){
-  .workspace{grid-template-columns:minmax(0,1fr)}
+@media (max-width:1100px){
+  /* Gestapelt (Formular über Vorschau): die Arbeitsfläche selbst scrollt,
+     die Panels behalten ihre natürliche Höhe, die Vorschau bekommt einen
+     festen, von der Fensterhöhe abhängigen Platz. */
+  .workspace{
+    grid-template-columns:minmax(0,1fr);
+    align-items:start;
+    overflow:auto;
+    min-height:0;
+  }
+  .panel{min-height:0}
+  /* Formular darf in der gestapelten Ansicht nicht höher werden als der
+     verfügbare Platz (sonst schiebt es die Vorschau aus dem Fenster) –
+     es scrollt dann intern. */
+  .panel:not(.preview-panel){max-height:max(220px, calc(100vh - 430px));min-height:0}
+  .preview-wrap{height:clamp(240px, 62vh, 720px)}
 }
 .panel{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);overflow:hidden;
+  display:flex;flex-direction:column;
+  min-width:0;min-height:0;            /* darf schrumpfen, scrollt innen */
 }
 .panel__head{
-  padding:13px 16px;border-bottom:1px solid var(--line);
+  flex:0 0 auto;
+  padding:11px 14px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:10px;justify-content:space-between;
 }
 .panel__title{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
-.panel__body{padding:16px}
+/* Der Formularinhalt kann höher sein als das Panel (kleines Fenster bzw.
+   großer Zoom): dann scrollt nur dieser Bereich, Kopf und Status bleiben
+   stehen. */
+.panel__body{
+  padding:14px;overflow:auto;min-height:0;flex:1 1 auto;
+}
 
-.field{margin-bottom:14px}
+.field{margin-bottom:12px}
 .field:last-child{margin-bottom:0}
 .field__label{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   font-size:12.5px;font-weight:600;color:var(--ink-soft);
-  margin-bottom:6px;letter-spacing:.01em;
+  margin-bottom:5px;letter-spacing:.01em;
 }
 .field__hint{font-size:11.5px;font-weight:500;color:var(--ink-mute)}
 .input,.select,.textarea{
-  width:100%;min-height:40px;padding:9px 11px;
+  width:100%;min-height:38px;padding:8px 11px;
   border-radius:var(--radius-sm);border:1px solid var(--line-strong);
   background:var(--surface-2);color:var(--ink);
   color-scheme:light dark;              /* native Datumsauswahl im Dark Mode */
@@ -191,8 +241,10 @@ select option{background-color:var(--surface);color:var(--ink)}
 
 .save-status{
   display:flex;align-items:center;gap:8px;
-  margin-top:14px;
+  padding:10px 14px;border-top:1px solid var(--line);
+  background:var(--surface-2);
   font-size:12.5px;color:var(--ink-mute);min-height:22px;
+  flex:0 0 auto;                       /* bleibt am unteren Panelrand stehen */
 }
 .save-status__dot{width:8px;height:8px;border-radius:50%;background:var(--ink-mute);flex:0 0 auto}
 .save-status[data-kind="ok"]{color:var(--ok)}
@@ -207,29 +259,46 @@ select option{background-color:var(--surface);color:var(--ink)}
 /* ---------------------------------------------------------------------------
    4) Vorschau-Fläche und A4-Blatt
    --------------------------------------------------------------------------- */
-.preview-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
-.stage-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.preview-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  min-width:0;min-height:0;
+}
+.stage-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;flex:0 0 auto}
+/* Vorschau-Fläche: füllt die Panelhöhe. Das Blatt wird per JS so skaliert,
+   dass es GENAU in diese Fläche passt (siehe `fitSheet()`), deshalb bleibt
+   hier kein Leerraum – bei großem Fenster wird die Vorschau größer, bei
+   kleinem Fenster kleiner. */
 .sheet-stage{
+  flex:1 1 auto;min-height:0;
   width:100%;display:grid;place-items:center;
-  padding:18px;border-radius:var(--radius);
+  padding:12px;border-radius:var(--radius);
   background:var(--surface-2);
   border:1px solid var(--line);
-  overflow:auto;
+  overflow:hidden;
 }
-/* Wrapper bekommt die skalierte Groesse, damit kein Leerraum entsteht */
-.sheet-fit{display:block;flex:0 0 auto}
-/* A4 = 210 x 297 mm. Im Bildschirm wird das ganze Blatt per transform skaliert. */
+/* Wrapper bekommt die skalierte Groesse, damit kein Leerraum entsteht.
+   Er ist der Schrumpf-Kandidat im Raster (min-width/min-height: 0), damit
+   die Vorschau nie über die Panelkante hinausläuft. */
+.sheet-fit{display:block;flex:0 0 auto;min-width:0;min-height:0}
+/* A4 = 210 x 297 mm. Am Bildschirm zeigt die Vorschau ein A5-Etikett
+   (148,5 mm hoch). Die Größe von `.sheet` folgt deshalb den gesetzten
+   Variablen `--sheet-w` / `--sheet-h` (das Skript setzt sie auf 210 mm ×
+   148,5 mm); im Druck stehen hier feste 210 × 297 mm.
+   `transform: scale(var(--zoom))` skaliert das Blatt, die Bounding-Box
+   bleibt aber die unskalierte Größe – deshalb setzt `fitSheet()` Breite und
+   Höhe beider Boxen selbst (skaliert), damit kein Leerraum bzw. keine
+   Überlappung entsteht. */
 .sheet{
   position:relative;
-  width:210mm;
-  height:297mm;
+  width:var(--sheet-w, 210mm);
+  height:var(--sheet-h, 148.5mm);
   background:#fff;
   color:#000;
   box-shadow:0 10px 34px rgba(16,24,40,.22), 0 1px 3px rgba(16,24,40,.18);
   overflow:hidden;
   flex:0 0 auto;
   font-family:Arial, Helvetica, "Segoe UI", sans-serif;
-  /* Platzhalter, wird per JS gesetzt (Breite/Hoehe in skalierten Pixeln) */
+  /* Platzhalter, wird per JS gesetzt */
   transform-origin:top left;
   transform:scale(var(--zoom, 1));
 }
@@ -510,8 +579,11 @@ select option{background-color:var(--surface);color:var(--ink)}
   background:rgba(9,13,20,.55);
 }
 .modal__dialog{
-  width:min(1000px, 100%);
-  max-height:min(92vh, 900px);
+  width:min(1280px, 100%);
+  /* fast die ganze Fensterhöhe: bei 1440p/150 % bleiben so rund 1000 px
+     nutzbare Höhe – die Liste zeigt deutlich mehr Einträge ohne Scrollen */
+  height:min(96vh, 1080px);
+  max-height:100%;
   display:flex;flex-direction:column;
   background:var(--surface);color:var(--ink);
   border:1px solid var(--line);border-radius:16px;
@@ -526,8 +598,9 @@ select option{background-color:var(--surface);color:var(--ink)}
 .modal__sub{font-size:12.5px;color:var(--ink-mute);margin-top:2px}
 .modal__close{margin-left:auto}
 .modal__body{
-  padding:18px;overflow:auto;
+  padding:18px;overflow:auto;min-height:0;
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;
+  align-items:start;
 }
 @media (max-width:860px){
   .modal__body{grid-template-columns:minmax(0,1fr)}
@@ -593,8 +666,12 @@ select option{background-color:var(--surface);color:var(--ink)}
 .ghs-count{font-size:12px;color:var(--ink-mute);margin-top:9px}
 .ghs-count[data-full="true"]{color:var(--danger);font-weight:700}
 
-/* Liste der Katalysatoren im Editor */
-.list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}
+/* Liste der Katalysatoren im Editor: nutzt die Höhe des Dialogs – die Liste
+   selbst scrollt erst, wenn wirklich mehr Einträge vorhanden sind als
+   sichtbar (vorher war sie fest auf 360 px begrenzt). */
+.list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;
+  max-height:calc(96vh - 250px);min-height:120px;overflow:auto;padding-right:2px}
+@supports (height:100dvh){.list{max-height:calc(100dvh - 250px)}}
 .list__item{
   display:flex;align-items:center;gap:10px;
   padding:9px 10px;border-radius:10px;
@@ -665,6 +742,9 @@ select option{background-color:var(--surface);color:var(--ink)}
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
   }
+  /* Bildschirm-Aufteilung (Fensterhöhe, interne Scrollbereiche) aufheben –
+     im Druck steht wieder das ganze A4-Blatt in einem Fluss. */
+  .app-shell{display:block!important;height:auto!important;overflow:visible!important}
   /* Bedienoberflaeche vollstaendig ausblenden */
   .app-bar,.toast,.modal,.stage-tools,.no-print{display:none!important}
   /* auch das linke Formular ausblenden (sonst sichtbar, wenn im Browser eine
@@ -706,6 +786,7 @@ select option{background-color:var(--surface);color:var(--ink)}
 </style>
 </head>
 <body>
+<div class="app-shell">
 <!-- ==========================================================================
      ARBEITSLEISTE
      ========================================================================== -->
@@ -859,6 +940,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     </article>
   </template>
 </main>
+</div><!-- /app-shell -->
 
 <!-- ==========================================================================
      STAMMDATENEDITOR
@@ -1314,6 +1396,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     sheet: $('sheet'),
     sheetFit: document.querySelector('.sheet-fit'),
     sheetStage: document.querySelector('.sheet-stage'),
+    panel: document.querySelector('.panel'),
     labels: Array.prototype.slice.call(document.querySelectorAll('[data-label]')),
     form: $('labelForm'),
     catalyst: $('fCatalyst'),
@@ -1560,39 +1643,89 @@ select option{background-color:var(--surface);color:var(--ink)}
     fillFurnaceSelect();
     syncInputs();
     renderLabels();
-    fitSheet();
+    scheduleFit();
   }
 
-  /* Bildschirmvorschau: A4-Blatt per transform auf die verfügbare Fläche
-     skalieren (Wrapper übernimmt die skalierte Größe, damit kein Leerraum
-     bleibt). Im Druck greift CSS (@media print -> transform:none). */
+  /* ------------------------------------------------------------------
+     Bildschirmvorschau
+     Am Bildschirm wird nur ein A5-Etikett gezeigt (148,5 mm hoch), deshalb
+     ist das „Blatt“ für die Vorschau 210 × 148,5 mm groß (im Druck greift
+     wieder 210 × 297 mm, siehe @media print).
+     Das Blatt wird so skaliert, dass es die Vorschaufläche GENAU ausfüllt:
+     gemessen wird die freie Fläche der Vorschau (`.sheet-stage` abzüglich
+     Innenabstand); zusätzlich bleibt ein kleiner Rand für den Blattschatten.
+     Dadurch berühren die Boxen „Etikettdaten“ und „Vorschau“ nie den unteren
+     Fensterrand – bei kleinem Fenster wird die Vorschau kleiner, bei großem
+     Fenster entsprechend größer.
+     Wichtig: `transform: scale()` verändert die Bounding-Box NICHT. Deshalb
+     werden Breite/Höhe von `.sheet` und `.sheet-fit` auf die skalierten
+     Pixelmaße gesetzt, damit Raster und Fläche exakt zusammenpassen. */
+  const PREVIEW_W_MM = 210;
+  const PREVIEW_H_MM = 148.5;
+  const SHADOW_GAP = 14;               /* px Luft für den Blattschatten */
+  let pendingFit = 0;
   function fitSheet() {
-    if (!el.sheetStage) return;
+    if (!el.sheet || !el.sheetStage) return;
     const mmToPx = 96 / 25.4;
-    const sheetW = 210 * mmToPx;
-    /* Am Bildschirm wird nur ein A5-Etikett (148,5 mm) gezeigt – Höhe auf
-       ein Etikett begrenzen, damit keine leere untere A4-Hälfte bleibt.
-       Im Druck (beforeprint) steht --zoom auf 1 und @media print stellt die
-       A4-Höhe (297 mm) selbst wieder her. */
-    const sheetH = 148.5 * mmToPx;
-    const stageStyle = window.getComputedStyle(el.sheetStage);
-    const padX = parseFloat(stageStyle.paddingLeft) + parseFloat(stageStyle.paddingRight);
-    const availW = Math.max(240, el.sheetStage.clientWidth - padX - 2);
-    const availH = Math.max(320, window.innerHeight - 170);
-    /* Dynamisch an die Fenstergröße anpassen: die Vorschau darf auch über
-       100 % (realistische Druckgröße) hinaus wachsen, damit bei großem
-       Fenster mehr zu sehen ist. Kleinere Fenster verkleinern weiterhin.
-       MAX_ZOOM begrenzt nur extreme Vergrößerungen (Defensiv-Cap). */
-    const MAX_ZOOM = 4;
-    const zoom = Math.min(availW / sheetW, availH / sheetH, MAX_ZOOM);
+    const sheetW = PREVIEW_W_MM * mmToPx;
+    const sheetH = PREVIEW_H_MM * mmToPx;
+
+    /* Blatt auf die Vorschaugröße bringen (im Druck überschreibt CSS das) */
+    el.sheet.style.setProperty('--sheet-w', PREVIEW_W_MM + 'mm');
+    el.sheet.style.setProperty('--sheet-h', PREVIEW_H_MM + 'mm');
+
+    /* Freie Fläche messen: Innenabstand des Behälters abziehen. Bewusst über
+       den Elternknoten von `.sheet-fit` (nicht über `.sheet-stage`), weil
+       `.sheet-fit` beim Setzen der Blattgröße wächst – eine Messung am
+       Behälter würde sich dann selbst beeinflussen (Rückkopplung). */
+    const holder = (el.sheetFit && el.sheetFit.parentElement) || el.sheetStage;
+    const holderStyle = window.getComputedStyle(holder);
+    const padX = parseFloat(holderStyle.paddingLeft) + parseFloat(holderStyle.paddingRight);
+    const padY = parseFloat(holderStyle.paddingTop) + parseFloat(holderStyle.paddingBottom);
+    const borderX = parseFloat(holderStyle.borderLeftWidth) + parseFloat(holderStyle.borderRightWidth);
+    const borderY = parseFloat(holderStyle.borderTopWidth) + parseFloat(holderStyle.borderBottomWidth);
+    const availW = Math.max(120, holder.clientWidth - padX - borderX - SHADOW_GAP);
+    const availH = Math.max(90, holder.clientHeight - padY - borderY - SHADOW_GAP);
+
+    /* Füllt die Fläche in beide Richtungen – nur begrenzt, damit das Etikett
+       in sehr großen Fenstern nicht unsinnig groß wird (Defensiv-Cap). */
+    const MAX_ZOOM = 3;
+    const zoom = Math.max(0.1, Math.min(availW / sheetW, availH / sheetH, MAX_ZOOM));
+    const shownW = Math.round(sheetW * zoom);
+    const shownH = Math.round(sheetH * zoom);
     el.sheet.style.setProperty('--zoom', String(Math.round(zoom * 1000) / 1000));
+    /* `.sheet` behält seine unskalierte Layout-Größe (mm) – die Optik kommt
+       ausschließlich aus `transform: scale()`. Nur der Wrapper `.sheet-fit`
+       bekommt die sichtbare (skalierte) Größe, damit im Raster kein Leerraum
+       entsteht. Würde man `.sheet` selbst verkleinern, käme die Skalierung
+       doppelt zum Tragen. */
+    el.sheet.style.width = '';
+    el.sheet.style.height = '';
     if (el.sheetFit) {
-      el.sheetFit.style.width = Math.round(sheetW * zoom) + 'px';
-      el.sheetFit.style.height = Math.round(sheetH * zoom) + 'px';
+      el.sheetFit.style.width = shownW + 'px';
+      el.sheetFit.style.height = shownH + 'px';
     }
+
     /* Die Mittelachse der GHS-Gruppe hängt nicht vom Zoom ab – hier nur
        einmal neu bestimmen, damit nach dem Layoutwechsel nichts verrutscht. */
     alignGhsMid();
+  }
+
+  /* Mehrfach ausgelöste Anpassungen (ResizeObserver, resize, Öffnen des
+     Editors …) werden zu einem Durchlauf zusammengefasst. */
+  function scheduleFit() {
+    if (pendingFit) window.cancelAnimationFrame(pendingFit);
+    pendingFit = window.requestAnimationFrame(function () {
+      pendingFit = 0;
+      fitSheet();
+    });
+  }
+
+  /* Arbeitsfläche so breit wie das Fenster (nur nach oben begrenzt), damit
+     die Vorschau den vorhandenen Platz auch nutzen kann. */
+  function fitShell() {
+    const w = Math.min(document.documentElement.clientWidth || window.innerWidth, 2400);
+    document.documentElement.style.setProperty('--shell-max', w + 'px');
   }
 
   /* ------------------------------------------------------------------
@@ -2004,7 +2137,35 @@ select option{background-color:var(--surface);color:var(--ink)}
     e.returnValue = '';
   });
 
-  window.addEventListener('resize', fitSheet);
+  /* ------------------------------------------------------------------
+     10) FENSTER-ANPASSUNG: Inhalt füllt das Fenster, nie darüber hinaus
+     ------------------------------------------------------------------
+     Bei jeder Größenänderung (Fenster ziehen, Browser-Zoom 175 / 200 %,
+     Editor öffnen/schließen) werden Arbeitsfläche, Vorschau und Blatt neu
+     berechnet. Der ResizeObserver beobachtet die Vorschaufläche selbst –
+     damit reagiert die Vorschau auch auf Änderungen, die nicht vom Fenster
+     kommen (z. B. Panelbreite, Scrollleisten). */
+  window.addEventListener('resize', function () {
+    fitShell();
+    scheduleFit();
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleFit);
+  }
+  if (typeof ResizeObserver === 'function') {
+    /* Beobachtet wird der Behälter der Vorschau (`(.sheet-fit).parentElement`)
+       – nicht das Blatt selbst, sonst löst das Setzen der Blattgröße wieder
+       eine Messung aus. */
+    const ro = new ResizeObserver(scheduleFit);
+    if (el.sheetFit && el.sheetFit.parentElement) ro.observe(el.sheetFit.parentElement);
+    if (el.panel) ro.observe(el.panel);
+  }
+  /* Der Editor ändert seinerseits nichts an der Vorschau, aber nach dem
+     Schließen soll die Skalierung sicher stimmen (Schrift/Nachladen). */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(scheduleFit);
+  }
+
   window.addEventListener('beforeprint', function () {
     el.sheet.style.setProperty('--zoom', '1');
     if (el.sheetFit) {
@@ -2022,11 +2183,15 @@ select option{background-color:var(--surface);color:var(--ink)}
   });
 
   /* ------------------------------------------------------------------
-     10) START
+     11) START
      ------------------------------------------------------------------ */
+  fitShell();
   render();
   loadEntry(null);
   loadEntry(state.profiles.length ? state.form.catalystId : null);
+  /* Nach dem ersten Layout noch einmal exakt nachmessen (Schriftdateien
+     können die Zeilenhöhen der Bedienoberfläche verändern). */
+  scheduleFit();
 
   if (state.needsEmbedSeed) {
     writeLocal();

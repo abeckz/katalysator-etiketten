@@ -59,6 +59,28 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
 * Am Bildschirm zeigt die Vorschau **ein** Etikett (`@media screen` blendet
   `label[data-index="1"]` aus); gedruckt werden weiterhin **beide**.
 
+## Bildschirm-Layout
+
+* `html`/`body` sind 100 % hoch; `.app-shell` ist eine Flex-Spalte mit
+  `height: 100dvh` und `overflow: hidden`. Die Seite selbst scrollt nicht –
+  die Boxen „Etikettdaten“ und „Live-Vorschau“ enden also immer 16 px über der
+  Fensterunterkante, auch bei 175 / 200 % Browser-Zoom.
+* `.workspace` nimmt den Rest der Höhe ein: links das Formular
+  (`minmax(320px, 420px)`), rechts die Vorschau. Lange Inhalte scrollen im
+  Panel selbst (`.panel__body`); Kopfzeile und `.save-status` bleiben stehen.
+* `fitSheet()` misst die freie Fläche der Vorschau und setzt `--zoom` so, dass
+  das A5-Etikett genau hineinpasst (Obergrenze `MAX_ZOOM = 3`). `.sheet`
+  behält dabei seine Layoutgröße in mm – die Optik kommt nur aus
+  `transform: scale()`; der Wrapper `.sheet-fit` bekommt die sichtbare Größe,
+  damit im Raster kein Leerraum entsteht. Ausgelöst wird die Anpassung über
+  `resize`, `visualViewport`, einen `ResizeObserver` auf der Vorschau und
+  `document.fonts.ready` (rAF-gedrosselt über `scheduleFit()`).
+* Der Stammdateneditor ist auf `min(1280px, 100%)` × `min(96vh, 1080px)`
+  vergrößert, damit die Liste ohne vorzeitiges Scrollen sichtbar ist.
+* Unter 1100 px Breite stehen Formular und Vorschau untereinander; dort
+  scrollt die Arbeitsfläche, die Vorschau bekommt eine feste Höhe
+  (`clamp(240px, 62vh, 720px)`).
+
 ## Druck
 
 `@page { size: A4 portrait; margin: 0 }`; die Vorschau-Skalierung wird über
@@ -74,6 +96,9 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | `ui-check.js` | Screenshots + PDF (1 Seite, A4), DOM-Assertions |
 | `behavior-check.js` | Ablauftests: Selects, Live-Updates, GHS-Limit, Editor, localStorage |
 | `print-measure.js` | misst die Druckgeometrie (mm) nach `beforeprint` |
+| `fit-probe.js` | prüft Fensterfüllung/Überlauf (optional `--editor`); Maße `Breite Höhe` |
+| `sheet-box.js` | prüft die sichtbare Blattgröße gegen die Vorschau-Fläche |
+| `ghs-geometry.js` | Etiketten-Geometrie für 0–6 Piktogramme (0 mm Überdeckung erwartet) |
 | `file-check.js` | Struktur-/Encoding-Sanity der Einzeldatei |
 | `measure.js` | Geometrie des GHS-Bereichs im Browser |
 | `ghs-bbox.js` | Bounding-Box je GHS-Symbol im 579er-Raum (Werte für `PIC_FIT`) |
