@@ -46,8 +46,18 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   auf die Innenraute aufgeblasen, sonst liefe es über den roten Rand hinaus.
 * Der Stammdateneditor zeigt in den GHS-Kacheln dieselbe fertige Raute
   (`ghsTile`) wie Etikett und Liste – inklusive rotem Rand und weißer Fläche.
-* Das Panel „Etikettendaten“ zeigt zum gewählten Katalysator nur das
-  Signalwort; die Piktogramme stehen im fertigen Etikett in der Vorschau.
+* Das Panel „Etikettendaten“ enthält die Eingabefelder (Katalysator,
+  Ausbaudatum, aus Ofen, ex Produktion sowie die drei Zusatzzeilen 1–3);
+  Signalwort und Piktogramme stehen ausschließlich im fertigen Etikett.
+* Unter „ex Produktion“ stehen drei Freitext-Zeilen (`.lrow__v` mit
+  `data-f="extra1…extra3"`). Sie werden über die drei Eingabefelder
+  „Zusatzzeile 1–3“ im Panel befüllt und erscheinen identisch auf beiden
+  Etiketten. Bleiben sie leer, zeigt CSS über `:empty::after` den Platzhalter
+  „Zeile 1–3“ nur am Bildschirm – im Druck wird er ausgeblendet, es wird also
+  nie ein Platzhaltertext mitgedruckt. Ohne Eingabe bleibt die Schreiblinie
+  als bloßer Unterstrich stehen.
+* Am Bildschirm zeigt die Vorschau **ein** Etikett (`@media screen` blendet
+  `label[data-index="1"]` aus); gedruckt werden weiterhin **beide**.
 
 ## Druck
 

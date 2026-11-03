@@ -189,20 +189,6 @@ select option{background-color:var(--surface);color:var(--ink)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:420px){.grid-2{grid-template-columns:1fr}}
 
-.summary{
-  margin-top:16px;padding:12px;border-radius:var(--radius-sm);
-  background:var(--surface-2);border:1px solid var(--line);
-}
-.summary__row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.summary__word{
-  font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  padding:3px 9px;border-radius:999px;border:1.5px solid currentColor;
-}
-.summary__word[data-word="Gefahr"]{color:var(--danger)}
-.summary__word[data-word="Achtung"]{color:var(--warn)}
-.summary__word[data-word=""]{color:var(--ink-mute);border-style:dashed}
-.summary__word[data-word="none"]{color:var(--ink-mute);border-style:dashed}
-
 .save-status{
   display:flex;align-items:center;gap:8px;
   margin-top:14px;
@@ -259,6 +245,17 @@ select option{background-color:var(--surface);color:var(--ink)}
   display:flex;
   background:#fff;color:#000;
   overflow:hidden;
+}
+/* Live-Vorschau am Bildschirm: nur EIN Etikett zeigen (beide werden
+   gerendert und gedruckt). Im Druck wird die Regel über @media print
+   zurückgenommen – dort stehen wieder beide Etiketten auf dem Blatt. */
+@media screen{
+  /* Da am Bildschirm nur ein A5-Etikett (148,5 mm hoch) sichtbar ist, wird das
+     Blatt auf genau diese Höhe begrenzt – so bleibt keine leere untere Hälfte.
+     Im Druck greifen die 297-mm-Werte von .sheet/.sheet__labels unverändert. */
+  .sheet,
+  .sheet__labels{height:148.5mm}
+  .label[data-index="1"]{display:none}
 }
 
 /* ---------------------------------------------------------------------------
@@ -331,15 +328,20 @@ select option{background-color:var(--surface);color:var(--ink)}
   padding:0;                          /* Rand kommt vom Etikett (5 mm) */
   --ghs-top:0mm;                      /* per JS gesetzt */
 }
-/* Felder: Katalysator, Ausbaudatum, aus Ofen, ex Produktion untereinander.
+/* Felder: Katalysator, Ausbaudatum, aus Ofen, ex Produktion und die drei
+   Zusatzzeilen (Leerzeilen, nur mit Unterstrich) untereinander.
    Die Spalte bleibt kompakt (rund 60–72 mm); die Zeilen sind nur so hoch
-   wie ihr Inhalt, deshalb stehen die Werte dicht beieinander. */
+   wie ihr Inhalt, deshalb stehen die Werte dicht beieinander.
+   `gap` wirkt hier als Zeilenabstand der Felder – der 2,4-mm-Abstand zur
+   Empfängerbox kommt vom Raster (row-gap), damit die Felder nicht in die
+   Empfängerzeile wachsen. */
 .label__fields{
   grid-area:fields;
   min-width:0;
   align-self:stretch;
   display:flex;flex-direction:column;justify-content:flex-start;
-  gap:4.2mm;
+  gap:2.6mm;
+  overflow:hidden;
 }
 /* Zeilen: Beschriftung oben, Wert darunter – jede Zeile so hoch wie ihr
    Inhalt, die Werte stehen also kompakt beieinander. */
@@ -377,6 +379,39 @@ select option{background-color:var(--surface);color:var(--ink)}
 .lrow__v[data-f="furnace"]{width:auto;white-space:nowrap;max-width:40mm;font-size:7mm}
 /* ex Produktion: bis zu zwei Zeilen mit Umbruch */
 .lrow__v[data-f="production"]{max-width:72mm;max-height:20mm;overflow:hidden}
+
+/* Zusatzzeilen („neue Zeile 1–3“): reine Schreiblinien ohne Beschriftung,
+   nur mit Unterstrich. Platzhalter bleiben leer, damit beim Drucken – anders
+   als bei `placeholder` – garantiert nichts mitgedruckt wird; die Texte
+   hängen ausschließlich am CSS `::after` (nie im Druck enthalten). */
+.lrow__v[data-f="extra1"],
+.lrow__v[data-f="extra2"],
+.lrow__v[data-f="extra3"]{
+  width:100%;                     /* leere Schreiblinie: volle Spaltenbreite,
+                                     sonst kollabiert die Breite auf 0 (leer)
+                                     und der Unterstrich wäre unsichtbar */
+  max-width:100%;
+  white-space:nowrap;
+  min-height:8.6mm;              /* gleiche Zeilenhöhe wie ein Wert */
+  font-size:6.8mm;
+}
+/* dünnere Schreiblinie als bei den Werten (0,4 mm -> 0,3 mm):
+   ein 0,15 mm hoher Balken mittig auf der Wertelinie */
+.lrow__v[data-f="extra1"],
+.lrow__v[data-f="extra2"],
+.lrow__v[data-f="extra3"]{
+  border-bottom-width:.15mm;
+  padding-bottom:1.45mm;
+}
+.lrow__v[data-f="extra1"]:empty::after{content:"Zeile 1"}
+.lrow__v[data-f="extra2"]:empty::after{content:"Zeile 2"}
+.lrow__v[data-f="extra3"]:empty::after{content:"Zeile 3"}
+/* Platzhalter nur am Bildschirm zeigen – nie im Druck */
+@media print{
+  .lrow__v[data-f="extra1"]:empty::after,
+  .lrow__v[data-f="extra2"]:empty::after,
+  .lrow__v[data-f="extra3"]:empty::after{content:""}
+}
 
 /* GHS-Bereich: Rauten oben, Signalwort zentriert darunter.
    `--cell` wird aus der gewählten Rautengröße gesetzt: zwei Rauten passen
@@ -632,8 +667,10 @@ select option{background-color:var(--surface);color:var(--ink)}
   }
   /* Bedienoberflaeche vollstaendig ausblenden */
   .app-bar,.toast,.modal,.stage-tools,.no-print{display:none!important}
+  /* auch das linke Formular ausblenden (sonst sichtbar, wenn im Browser eine
+     eigene „Hintergrundgrafiken“-Druckoption abweicht) */
+  .panel,.panel.no-print{display:none!important}
   .workspace{display:block!important;max-width:none!important;margin:0!important;padding:0!important}
-  .panel{display:none!important}
   .preview-wrap,.sheet-stage{display:block!important;padding:0!important;margin:0!important;border:0!important;background:none!important;overflow:visible!important}
   .sheet-fit{width:auto!important;height:auto!important}
   .sheet{
@@ -729,13 +766,25 @@ select option{background-color:var(--surface);color:var(--ink)}
           </label>
           <input class="input" type="text" id="fProduction" name="production" maxlength="60">
         </div>
-      </form>
-
-      <div class="summary" aria-live="polite">
-        <div class="summary__row">
-          <span class="summary__word" id="sumWord" data-word="">–</span>
+        <div class="field">
+          <label class="field__label" for="fExtra1">
+            <span>Zusatzzeile 1</span>
+          </label>
+          <input class="input" type="text" id="fExtra1" name="extra1" maxlength="60">
         </div>
-      </div>
+        <div class="field">
+          <label class="field__label" for="fExtra2">
+            <span>Zusatzzeile 2</span>
+          </label>
+          <input class="input" type="text" id="fExtra2" name="extra2" maxlength="60">
+        </div>
+        <div class="field">
+          <label class="field__label" for="fExtra3">
+            <span>Zusatzzeile 3</span>
+          </label>
+          <input class="input" type="text" id="fExtra3" name="extra3" maxlength="60">
+        </div>
+      </form>
 
       <p class="save-status" id="saveStatus" data-kind="idle">
         <span class="save-status__dot" aria-hidden="true"></span>
@@ -784,6 +833,19 @@ select option{background-color:var(--surface);color:var(--ink)}
           <div class="lrow">
             <div class="lrow__k">ex Produktion</div>
             <div class="lrow__v" data-f="production"></div>
+          </div>
+          <!-- drei weitere Zeilen direkt unter „ex Produktion“: reine
+               Schreiblinien (nur Unterstrich, keine Beschriftung). Der
+               Platzhalter „Zeile 1–3“ steht ausschließlich im CSS und
+               erscheint nur am Bildschirm, niemals im Druck. -->
+          <div class="lrow lrow--extra">
+            <div class="lrow__v" data-f="extra1"></div>
+          </div>
+          <div class="lrow lrow--extra">
+            <div class="lrow__v" data-f="extra2"></div>
+          </div>
+          <div class="lrow lrow--extra">
+            <div class="lrow__v" data-f="extra3"></div>
           </div>
         </div>
         <!-- rechts: GHS-Gruppe mit Signalwort darunter, darunter die Empfängerbox -->
@@ -1129,7 +1191,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     { id: 'kat-04', name: 'Katalysator Pt/Al\u2082O\u2083', signal: 'Achtung', symbols: ['exclam', 'silhouette'] },
     { id: 'kat-05', name: 'Katalysator Ru/C', signal: 'Achtung', symbols: ['flamme', 'exclam'] }
   ];
-  const FURNACES = ['C100', 'C200', 'C300', 'C400', 'C500'];
+  const FURNACES = ['C100', 'C200', 'C300', 'C400', 'C500', 'C700', 'C800'];
   const STORAGE_KEY = 'ausbau-katalysator-etiketten:v1';
 
   function defaultForm(profiles) {
@@ -1137,7 +1199,10 @@ select option{background-color:var(--surface);color:var(--ink)}
       catalystId: profiles.length ? profiles[0].id : '',
       date: todayISO(),
       furnace: '',
-      production: ''
+      production: '',
+      extra1: '',
+      extra2: '',
+      extra3: ''
     };
   }
 
@@ -1215,6 +1280,9 @@ select option{background-color:var(--surface);color:var(--ink)}
   if (normDate(seedForm.date)) state.form.date = normDate(seedForm.date);
   if (FURNACES.indexOf(seedForm.furnace) >= 0) state.form.furnace = seedForm.furnace;
   if (typeof seedForm.production === 'string') state.form.production = seedForm.production.slice(0, 60);
+  if (typeof seedForm.extra1 === 'string') state.form.extra1 = seedForm.extra1.slice(0, 60);
+  if (typeof seedForm.extra2 === 'string') state.form.extra2 = seedForm.extra2.slice(0, 60);
+  if (typeof seedForm.extra3 === 'string') state.form.extra3 = seedForm.extra3.slice(0, 60);
 
   /* ------------------------------------------------------------------
      DOM-Referenzen
@@ -1253,7 +1321,9 @@ select option{background-color:var(--surface);color:var(--ink)}
     date: $('fDate'),
     furnace: $('fFurnace'),
     production: $('fProduction'),
-    sumWord: $('sumWord'),
+    extra1: $('fExtra1'),
+    extra2: $('fExtra2'),
+    extra3: $('fExtra3'),
     saveStatus: $('saveStatus'),
     saveStatusText: $('saveStatusText'),
     btnSave: $('btnSave'),
@@ -1317,6 +1387,9 @@ select option{background-color:var(--surface);color:var(--ink)}
     el.date.value = state.form.date;
     el.production.value = state.form.production;
     el.furnace.value = state.form.furnace;
+    el.extra1.value = state.form.extra1;
+    el.extra2.value = state.form.extra2;
+    el.extra3.value = state.form.extra3;
   }
 
   /* ------------------------------------------------------------------
@@ -1328,7 +1401,7 @@ select option{background-color:var(--surface);color:var(--ink)}
   function ghsBlock(symbols, signal) {
     const list = (symbols || []).filter(function (k) { return GHS_BY_KEY.has(k); });
     const n = list.length;
-    let grid = '<div class="ghs__empty">keine Piktogramme hinterlegt</div>';
+    let grid = '';
     let sizeClass = 'ghs--empty';
     let cell = GHS_SIZES.empty;
 
@@ -1352,11 +1425,13 @@ select option{background-color:var(--surface);color:var(--ink)}
         }).join('') + '</div>';
     }
 
+    /* Signalwort erscheint nur, wenn mindestens ein Piktogramm gewählt ist –
+       ohne Piktogramm gibt es auch kein Gefahrwort. */
     const word = normSignal(signal);
-    /* Signalwort steht immer unter den Piktogrammen, auch wenn keine Raute
-       gewaehlt ist – der leere Rahmen zeigt, dass hier nichts eingetragen ist. */
-    const wordBox = '<div class="ghs__signal" data-word="' + (word ? esc(word) : '') + '">' +
-      (word ? esc(word) : '<span class="ghs__signal-empty">kein Signalwort</span>') + '</div>';
+    const wordBox = n > 0
+      ? '<div class="ghs__signal" data-word="' + (word ? esc(word) : '') + '">' +
+        (word ? esc(word) : '<span class="ghs__signal-empty">kein Signalwort</span>') + '</div>'
+      : '';
 
     /* Variantenklasse + Rautenkante werden vom Aufrufer am Container gesetzt */
     return { html: grid + wordBox, variant: sizeClass, cell: cell };
@@ -1372,7 +1447,10 @@ select option{background-color:var(--surface);color:var(--ink)}
       catalyst: profile ? profile.name : '',
       date: formatDate(state.form.date) || '',
       furnace: state.form.furnace || '',
-      production: state.form.production ? state.form.production : ''
+      production: state.form.production ? state.form.production : '',
+      extra1: state.form.extra1 ? state.form.extra1 : '',
+      extra2: state.form.extra2 ? state.form.extra2 : '',
+      extra3: state.form.extra3 ? state.form.extra3 : ''
     };
     const block = ghsBlock(profile ? profile.symbols : [], profile ? profile.signal : '');
 
@@ -1475,21 +1553,13 @@ select option{background-color:var(--surface);color:var(--ink)}
   }
   window.addEventListener('resize', alignGhsMid);
 
-  /* Nur das Signalwort: die GHS-Piktogramme stehen im fertigen Etikett in der
-     Vorschau rechts und werden hier nicht zusätzlich gezeigt. */
-  function renderSummary() {
-    const profile = currentProfile();
-    const word = profile ? profile.signal : '';
-    el.sumWord.textContent = word || 'kein Signalwort';
-    el.sumWord.setAttribute('data-word', word || 'none');
-  }
-
+  /* kein Signalwort-Panel mehr: das Signalwort steht ausschließlich im
+     fertigen Etikett (Vorschau + Druck). */
   function render() {
     fillCatalystSelect();
     fillFurnaceSelect();
     syncInputs();
     renderLabels();
-    renderSummary();
     fitSheet();
   }
 
@@ -1500,12 +1570,21 @@ select option{background-color:var(--surface);color:var(--ink)}
     if (!el.sheetStage) return;
     const mmToPx = 96 / 25.4;
     const sheetW = 210 * mmToPx;
-    const sheetH = 297 * mmToPx;
+    /* Am Bildschirm wird nur ein A5-Etikett (148,5 mm) gezeigt – Höhe auf
+       ein Etikett begrenzen, damit keine leere untere A4-Hälfte bleibt.
+       Im Druck (beforeprint) steht --zoom auf 1 und @media print stellt die
+       A4-Höhe (297 mm) selbst wieder her. */
+    const sheetH = 148.5 * mmToPx;
     const stageStyle = window.getComputedStyle(el.sheetStage);
     const padX = parseFloat(stageStyle.paddingLeft) + parseFloat(stageStyle.paddingRight);
     const availW = Math.max(240, el.sheetStage.clientWidth - padX - 2);
     const availH = Math.max(320, window.innerHeight - 170);
-    const zoom = Math.min(availW / sheetW, availH / sheetH, 1);
+    /* Dynamisch an die Fenstergröße anpassen: die Vorschau darf auch über
+       100 % (realistische Druckgröße) hinaus wachsen, damit bei großem
+       Fenster mehr zu sehen ist. Kleinere Fenster verkleinern weiterhin.
+       MAX_ZOOM begrenzt nur extreme Vergrößerungen (Defensiv-Cap). */
+    const MAX_ZOOM = 4;
+    const zoom = Math.min(availW / sheetW, availH / sheetH, MAX_ZOOM);
     el.sheet.style.setProperty('--zoom', String(Math.round(zoom * 1000) / 1000));
     if (el.sheetFit) {
       el.sheetFit.style.width = Math.round(sheetW * zoom) + 'px';
@@ -1598,13 +1677,16 @@ select option{background-color:var(--surface);color:var(--ink)}
       el.eName.focus();
       return null;
     }
-    if (!state.draftSymbols.length) {
-      setFlag('warn', 'Ohne Piktogramme wird auf dem Etikett ~keine Piktogramme hinterlegt" gedruckt.');
+    const signal = normSignal(el.eSignal.value);
+    if (state.draftSymbols.length && !signal) {
+      setFlag('error', 'Bitte ein Signalwort (Achtung oder Gefahr) wählen – GHS-Piktogramme erfordern ein Signalwort.');
+      el.eSignal.focus();
+      return null;
     }
     const symbols = state.draftSymbols.slice().sort(function (a, b) {
       return GHS_ORDER.indexOf(a) - GHS_ORDER.indexOf(b);
     });
-    return { name: name.slice(0, 48), signal: normSignal(el.eSignal.value), symbols: symbols.slice(0, 6) };
+    return { name: name.slice(0, 48), signal: signal, symbols: symbols.slice(0, 6) };
   }
 
   function saveEntry() {
@@ -1816,7 +1898,6 @@ select option{background-color:var(--surface);color:var(--ink)}
     state.form.catalystId = el.catalyst.value;
     markDirty();
     renderLabels();
-    renderSummary();
   });
 
   el.date.addEventListener('change', function () {
@@ -1833,6 +1914,24 @@ select option{background-color:var(--surface);color:var(--ink)}
 
   el.production.addEventListener('input', function () {
     state.form.production = el.production.value.slice(0, 60);
+    markDirty();
+    renderLabels();
+  });
+
+  el.extra1.addEventListener('input', function () {
+    state.form.extra1 = el.extra1.value.slice(0, 60);
+    markDirty();
+    renderLabels();
+  });
+
+  el.extra2.addEventListener('input', function () {
+    state.form.extra2 = el.extra2.value.slice(0, 60);
+    markDirty();
+    renderLabels();
+  });
+
+  el.extra3.addEventListener('input', function () {
+    state.form.extra3 = el.extra3.value.slice(0, 60);
     markDirty();
     renderLabels();
   });

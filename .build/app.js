@@ -162,7 +162,7 @@
     { id: 'kat-04', name: 'Katalysator Pt/Al₂O₃', signal: 'Achtung', symbols: ['exclam', 'silhouette'] },
     { id: 'kat-05', name: 'Katalysator Ru/C', signal: 'Achtung', symbols: ['flamme', 'exclam'] }
   ];
-  const FURNACES = ['C100', 'C200', 'C300', 'C400', 'C500'];
+  const FURNACES = ['C100', 'C200', 'C300', 'C400', 'C500', 'C700', 'C800'];
   const STORAGE_KEY = 'ausbau-katalysator-etiketten:v1';
 
   function defaultForm(profiles) {
