@@ -666,6 +666,8 @@ select option{background-color:var(--surface);color:var(--ink)}
 }
 
 /* GHS-Bereich: Rauten oben, Signalwort zentriert darunter.
+   Ohne Piktogramme steht im Etikett GAR NICHTS (kein Ersatztext): die Gruppe
+   ist dann leer, das Etikett zeigt rechts nur die Felder + Empfängerbox.
    `--cell` wird aus der gewählten Rautengröße gesetzt: zwei Rauten passen
    immer nebeneinander in die Spalte (3 Reihen x 2 Spalten), die Rauten werden
    bei kleinerem Platz entsprechend kleiner.
@@ -710,12 +712,11 @@ select option{background-color:var(--surface);color:var(--ink)}
    weiße Innenfläche selbst mit und endet exakt an der Kachelkante, dadurch
    gibt es keine durchscheinende Haarlinie zwischen benachbarten Rauten. */
 .ghs--empty{justify-content:flex-start}
-/* Signalwort-Rahmen unter den Rauten. Er steht immer, wenn Piktogramme
-   gewählt sind – auch ohne Signalwort, denn GHS-Piktogramme dürfen ohne
-   Signalwort stehen (`ghs--nosignal`, z. B. GHS07/GHS08 bei Einstufungen
-   ohne Signalwort). In diesem Fall bleibt der Rahmen leer; der Platzhalter
-   „kein Signalwort“ steht in kleiner Schrift darin, damit das Etikett nicht
-   wie ein Fehler wirkt. */
+.ghs:empty{display:none}       /* ohne Piktogramme: kein leerer Bereich */
+/* Signalwort-Rahmen unter den Rauten. Er steht NUR, wenn ein Signalwort
+   gesetzt ist. GHS-Piktogramme dürfen ohne Signalwort stehen (z. B. GHS07/
+   GHS08 bei Einstufungen ohne Signalwort) – dann fehlt der Rahmen komplett:
+   im Etikett steht kein „kein Signalwort“ und kein leerer Kasten. */
 .ghs__signal{
   flex:0 0 auto;
   align-self:center;            /* immer mittig unter den Rauten */
@@ -730,12 +731,9 @@ select option{background-color:var(--surface);color:var(--ink)}
   white-space:nowrap;
   overflow:hidden;
 }
-/* Ohne Signalwort ist der Rahmen kein „leeres Pflichtfeld“ mehr, sondern
-   bewusst leer: dünnerer Rahmen, kein Warn-Look. */
-.ghs--nosignal .ghs__signal{border-width:.5mm;min-height:9mm}
-.ghs__signal-empty{font-size:2.8mm;font-weight:700;font-style:italic;letter-spacing:.02em;white-space:normal}
-.ghs__empty{flex:0 0 auto;width:44mm;max-width:100%;text-align:center;
-  font-size:3.4mm;font-style:italic;line-height:1.25;color:#222;padding:2mm 0}
+/* Ohne Signalwort gibt es keinen Signalwort-Rahmen (`ghs--nosignal`): die
+   Rauten stehen dann allein, ohne Platzhaltertext und ohne leeren Kasten. */
+.ghs--nosignal{gap:0}
 
 /* Empfaenger-Box: unten links, direkt unter den Feldern (volle Breite der
    Datenspalte). Die GHS-Gruppe rechts bleibt davon unberuehrt. */
@@ -996,7 +994,7 @@ select option{background-color:var(--surface);color:var(--ink)}
   }
   .label__left{border-right:.7mm solid #000!important}
   /* nur Inhalt der Etiketten schwaerzen (Rahmenlinien bleiben unveraendert) */
-  .label__lefttext,.lrow__v,.ghs__signal,.ghs__empty,.recipient{color:#000!important}
+  .label__lefttext,.lrow__v,.ghs__signal,.recipient{color:#000!important}
   *{box-shadow:none!important;text-shadow:none!important;animation:none!important;transition:none!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   svg{shape-rendering:geometricPrecision}
@@ -1719,7 +1717,8 @@ select option{background-color:var(--surface);color:var(--ink)}
          abgelehnt bzw. beim Normalisieren verworfen). */
   /* Liefert den Inhalt des GHS-Bereichs (Rauten-Grid + Signalwort) für 1..6
      Piktogramme. Der Container im Etikett (.ghs) bleibt bestehen, nur die
-     Variantenklasse wird gesetzt; `cell` ist die Rautenkante in mm. */
+     Variantenklasse wird gesetzt; `cell` ist die Rautenkante in mm.
+     Ohne Piktogramme bleibt das Etikett an dieser Stelle leer. */
   function ghsBlock(symbols, signal) {
     const list = (symbols || []).filter(function (k) { return GHS_BY_KEY.has(k); });
     const n = list.length;
@@ -1747,14 +1746,14 @@ select option{background-color:var(--surface);color:var(--ink)}
         }).join('') + '</div>';
     }
 
-    /* Signalwort erscheint nur, wenn mindestens ein Piktogramm gewählt ist –
-       ohne Piktogramm gibt es auch kein Signalwort. Umgekehrt darf ein
-       Piktogramm ohne Signalwort stehen: dann bleibt der Signalwort-Rahmen
-       leer (Platzhaltertext, damit das Etikett nicht „nackt“ wirkt). */
+    /* Signalwort-Rahmen nur bei gesetztem Signalwort. Piktogramme ohne
+       Signalwort sind zulässig (es gibt Einstufungen ohne Signalwort) – dann
+       steht im Etikett NICHTS: kein Platzhalter „kein Signalwort“ und kein
+       leerer Kasten. Ohne Piktogramme gibt es ebenfalls kein Signalwort und
+       damit auch keinen Rahmen. */
     const word = normSignal(signal);
-    const wordBox = n > 0
-      ? '<div class="ghs__signal" data-word="' + (word ? esc(word) : '') + '">' +
-        (word ? esc(word) : '<span class="ghs__signal-empty">kein Signalwort</span>') + '</div>'
+    const wordBox = word
+      ? '<div class="ghs__signal" data-word="' + esc(word) + '">' + esc(word) + '</div>'
       : '';
 
     /* Variantenklasse + Rautenkante werden vom Aufrufer am Container gesetzt.
@@ -1806,15 +1805,17 @@ select option{background-color:var(--surface);color:var(--ink)}
 
   /* ------------------------------------------------------------------
      Mittelachse der GHS-Gruppe
-     Die Mitte des Etiketts ist (obere Spitze der GHS-Gruppe bis Unterkante
-     Signalwort) / 2. Ohne Signalwort (`ghs--nosignal`) ist der Signalwort-
-     Rahmen bewusst leer und bleibt Teil der Gruppe – die Messung ändert sich
-     dadurch nicht. Die GHS-Zelle füllt im Raster beide Zeilen, deshalb
+     Die Mitte des Etiketts ist (obere Spitze der ersten Raute .. Unterkante
+     des Signalworts) / 2. Ist kein Signalwort gesetzt (Piktogramme ohne
+     Signalwort, `ghs--nosignal`), fehlt der Signalwort-Rahmen ganz – dann ist
+     die Unterkante der Gruppe die Unterkante der letzten Raute. Ohne
+     Piktogramme steht gar keine Gruppe im Etikett (nichts auszurichten).
+     Die GHS-Zelle füllt im Raster beide Zeilen, deshalb
      wird der Freiraum über der Gruppe (`--ghs-top`) so gesetzt, dass diese
      Mitte exakt auf der Etikettenmitte liegt.
      Die obere Spitze wird gemessen (erste Raute: Rect-Mitte − halbe Höhe),
      das Signalwort über seine Unterkante; dadurch stimmt die Rechnung auch
-     bei anderen Rautengrößen und ohne Piktogramme (Text „keine Piktogramme“).
+     bei anderen Rautengrößen.
      Die Etiketten sind im Bildschirm per `transform: scale(--zoom)`
      verkleinert – gemessen wird deshalb über `getBoundingClientRect()`
      (Sicht-Maße) und der Zoomfaktor wieder herausgerechnet. */
@@ -1855,18 +1856,21 @@ select option{background-color:var(--surface);color:var(--ink)}
         (parseFloat(getComputedStyle(right).getPropertyValue('--fields-shift')) || 0);
 
       /* Obere Spitze der Gruppe = Oberkante der ersten Raute (die Raute füllt
-         ihre Kachel exakt aus, s. `.ghs__dia`). Ohne Piktogramme beginnt die
-         Gruppe mit dem Text „keine Piktogramme“.
-         Untere Kante = Unterkante des Signalworts. */
+         ihre Kachel exakt aus, s. `.ghs__dia`). Ohne Piktogramme steht gar
+         nichts im Etikett – dann gibt es nichts auszurichten.
+         Untere Kante = Unterkante des Signalworts; ohne Signalwort ist es die
+         Unterkante der Rauten (der Rahmen fehlt dann komplett). */
       const tile = ghs.querySelector('.ghs__dia');
       const grid = ghs.querySelector('.ghs__grid');
       const sig = ghs.querySelector('.ghs__signal');
-      const top = tile
-        ? tile.getBoundingClientRect().top
-        : (grid || ghs).getBoundingClientRect().top;
+      if (!tile) {
+        right.style.setProperty('--ghs-top', '0mm');
+        return;
+      }
+      const top = tile.getBoundingClientRect().top;
       const bottom = sig
         ? sig.getBoundingClientRect().bottom
-        : ghs.getBoundingClientRect().bottom;
+        : (grid || tile).getBoundingClientRect().bottom;
 
       /* Ist-Mitte (von der Etiketteninnenkante aus) und Etikettenmitte */
       const mid = (top + bottom) / 2 - innerTop;

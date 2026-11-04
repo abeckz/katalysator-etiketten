@@ -37,10 +37,13 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   Einstufungen mit Piktogramm, aber ohne Signalwort), **ein Signalwort ohne
   Piktogramm gibt es nicht**. Der Editor lehnt ein Signalwort ohne Piktogramm
   beim Speichern ab; wird das letzte Piktogramm abgewählt, leert sich das
-  Signalwort. Im Etikett bleibt der Signalwort-Rahmen bei Piktogrammen ohne
-  Signalwort stehen (`.ghs--nosignal`, dünnerer Rahmen) und enthält den
-  Platzhalter „kein Signalwort“; in der Editorliste erscheint dafür der
-  neutrale Chip „kein Signalwort“.
+  Signalwort. Im Etikett steht das Signalwort **nur, wenn es gesetzt ist** –
+  bei Piktogrammen ohne Signalwort fehlt der Signalwort-Rahmen komplett
+  (kein „kein Signalwort“, kein leerer Kasten, `ghs--nosignal` für die
+  Mittelachsen-Rechnung). Ohne Piktogramme bleibt die GHS-Stelle im Etikett
+  leer (der Container wird per `.ghs:empty` ausgeblendet). Im
+  Stammdateneditor zeigt die Liste den Zustand dagegen als Text: den Chip
+  „kein Signalwort“ bzw. „keine Piktogramme“.
 * Die Etiketten werden aus `<template id="labelTemplate">` geklont
   (`buildLabels()` im Skript), damit Markup nur einmal gepflegt wird.
 * GHS-Piktogramme sind die **offiziellen UNECE-Vorlagen** (Wikimedia-Commons-
@@ -187,6 +190,9 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | `extra-rows-check.js` | prüft die drei Zusatzzeilen (leer, ohne Unterstrich, gemeinsame Klammer, Druck = 1 Seite) |
 | `fill-measure.js` | füllt alle Felder + Zusatzzeilen und misst Gruppenklammer, Zeilenabstände und Überlauf (A4 + 140 mm) |
 | `picker-shot.js`, `editor-shot.js` | Screenshots der GHS-Auswahl bzw. des Editors (hell/dunkel) |
+| `label-signal-check.js` | Signalwort-Regeln am Etikett: ohne Signalwort kein Rahmen/kein Text (Piktogramme bleiben), ohne Piktogramme bleibt die GHS-Stelle leer, Editorliste zeigt weiter den Hinweis – je Vorschau und Druck |
+| `signal-check.js` | derselbe Ablauf über die echte Oberfläche (Editor: Profil anlegen, speichern, auswählen) per Chrome-CDP; `--shot` bereitet nur die Screenshot-Lage vor |
+| `run-checks.js` | ruft ein Prüfskript auf und bricht nach einem Zeitlimit ab: `node .build/run-checks.js signal-check.js 8000` |
 | `fix-encoding.js`, `repair-mojibake.js` | Encoding-Reparaturen (idempotent) |
 
 Aufruf im Projektordner:
@@ -196,6 +202,8 @@ node .build/ui-check.js
 node .build/behavior-check.js
 node .build/print-measure.js
 node .build/file-check.js
+node .build/label-signal-check.js
+node .build/signal-check.js
 ```
 
 `ui-check.js` legt `screen-1400.png`, `druck.pdf` und weitere Artefakte in
