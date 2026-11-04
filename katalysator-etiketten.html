@@ -1564,16 +1564,16 @@ select option{background-color:var(--surface);color:var(--ink)}
     5: { cols: 'repeat(2, auto)', cells: [1, 1, 1, 1, 0, 1] },
     6: { cols: 'repeat(2, auto)', cells: [1, 1, 1, 1, 1, 1] }
   };
-  /* Rautenkante in mm je Anzahl. Zwei Rauten nebeneinander ergeben rund 55 mm
-     (2 x 27 mm + 1,4 mm Abstand), die Höhe über den Feldern reicht für drei
-     Reihen. */
-  const GHS_SIZES = {
-    horizontal: { single: 38, row3: 27 },
-    diamond4: { cell: 27 },
-    cross5: { cell: 27 },
-    grid6: { cell: 26 },
-    empty: 24
-  };
+  /* Rautenkante in mm – FÜR ALLE Symbole GLEICH (eine einzige feste Größe).
+     Früher variierte die Kante je nach Anzahl (1 Symbol 38 mm, 2–5 Symbole
+     27 mm, 6 Symbole 26 mm), wodurch die Symbolik ihre Größe änderte. Jetzt
+     gilt für jede Anzahl dieselbe Kante. Gewählt ist 26 mm – derselbe Wert,
+     den vorher schon das größte Raster (6 Symbole, 3 Reihen) verwendete: drei
+     Reihen (3 x 26 + 2 x 1,4) plus Signalwort passen damit in die Höhe über
+     der Empfängerbox. Horizontal bleiben zwei Rauten (2 x 26 + 1,4 = 53,4 mm)
+     bequem innerhalb des Bereichs zwischen Empfängerbox und Etikettenrand
+     (~104 mm), die Kante wird also nicht reduziert. */
+  const GHS_CELL_MM = 26;
 
   /* ------------------------------------------------------------------
      3) AUSGANGSDATEN (werden beim ersten ffnen in die Datei geschrieben)
@@ -1687,7 +1687,12 @@ select option{background-color:var(--surface);color:var(--ink)}
      Die beiden Etiketten liegen innerhalb ihres 148,5 x 210 mm grossen
      Rahmens absolut, damit der 5-mm-Rand im Druck exakt stimmt. */
   const LABEL_MARGIN = 5;      /* mm rundum */
-  const LABEL_GAP = 3;         /* mm zwischen den Feldern (gleiche Spalte) */
+  /* Zwei DIN-A5-Etiketten (je 148,5 mm hoch) liegen auf einem A4-Bogen
+     (297 mm) direkt aneinander – OHNE Zwischenabstand. Ein zusätzlicher
+     Versatz (wie früher `LABEL_GAP`) würde das untere Etikett über das
+     Seitenende (297 mm) hinausschieben und die letzten Millimeter wegen
+     `overflow:hidden` im Druck abschneiden. Deshalb ist `top` exakt
+     `i * 148.5 mm`. */
   (function buildLabels() {
     const host = $('sheetLabels');
     const tpl = $('labelTemplate');
@@ -1698,7 +1703,7 @@ select option{background-color:var(--surface);color:var(--ink)}
       node.setAttribute('data-index', String(i));
       node.setAttribute('aria-label', i === 0 ? 'Etikett 1 (links)' : 'Etikett 2 (rechts)');
       node.style.left = '0mm';
-      node.style.top = (i * (148.5 + LABEL_GAP)) + 'mm';
+      node.style.top = (i * 148.5) + 'mm';
       node.style.padding = LABEL_MARGIN + 'mm';
       host.appendChild(node);
     }
@@ -1805,21 +1810,19 @@ select option{background-color:var(--surface);color:var(--ink)}
     const n = list.length;
     let grid = '';
     let sizeClass = 'ghs--empty';
-    let cell = GHS_SIZES.empty;
+    let cell = GHS_CELL_MM;
 
     if (n > 0) {
       const layout = GHS_LAYOUT[n] || GHS_LAYOUT[6];
-      cell = n >= 6 ? GHS_SIZES.grid6.cell
-        : n === 5 ? GHS_SIZES.cross5.cell
-        : n === 4 ? GHS_SIZES.diamond4.cell
-        : (n === 1 ? GHS_SIZES.horizontal.single : GHS_SIZES.horizontal.row3);
+      cell = GHS_CELL_MM;
       sizeClass = 'ghs--n' + n;
-      /* Rautenkante so weit verkleinern, dass die Gruppe in die Etikettenbreite
-         passt: bei zwei nebeneinander liegenden Rauten bleibt neben der
-         Feldspalte weniger Platz als 2 × 18 mm plus Abstand. Gerechnet wird
-         mit festen Millimetern (`GROUP_AVAIL_MM`), damit Vorschau und Druck
-         dieselbe Rautengröße bekommen. Das Raster bleibt zweispaltig und die
-         Rauten bleiben gleich groß – kein Verzerren, kein Überlaufen. */
+      /* Rautenkante ist FEST (gleiche Größe für jede Symbolanzahl). Falls die
+         Gruppe doch breiter als der verfügbare Bereich wird (rechter Rand der
+         Empfängerbox als linke Grenze, Etikettenrand rechts), wird die Kante
+         hier verkleinert. Gerechnet wird mit festen Millimetern
+         (`GROUP_AVAIL_MM`), damit Vorschau und Druck dieselbe Rautengröße
+         bekommen. Das Raster bleibt zweispaltig und die Rauten bleiben gleich
+         groß – kein Verzerren, kein Überlaufen. */
       const colsUsed = layout.span ? 1 : Math.min(2, layout.cells.filter(Boolean).length || 1);
       if (colsUsed > 1) {
         const maxCell = (GROUP_AVAIL_MM - (colsUsed - 1) * GHS_TILE_GAP_MM) / colsUsed;
@@ -1990,11 +1993,22 @@ select option{background-color:var(--surface);color:var(--ink)}
          genau seinen Wert. Auf >= 0 begrenzen (steht ohnehin mittig, wenn die
          Gruppe schon zu tief sitzt). Ohne Zwischenrundung in mm – 0,05 mm
          wären hier bereits 0,19 px Messfehler. */
-      const topMm = Math.max(0, pxToMm(rightBox.height / 2 - mid) / zoom);
+      let topMm = Math.max(0, pxToMm(rightBox.height / 2 - mid) / zoom);
+      /* Vertikaler Platz für die Gruppe: Datenzeilen-Oberkante bis zur
+         Empfängerbox (dort endet die Datenzeile, darüber liegt nur noch der
+         Rasterabstand von `.label__right`). */
+      const recBox = right.querySelector('.recipient');
+      const roomPx = recBox
+        ? (recBox.getBoundingClientRect().top - rowBox.top)
+        : (rowBox.height - parseFloat(getComputedStyle(row).marginBottom || 0));
+      /* Die Mittelachse darf die Gruppe nicht in die Empfängerbox drücken:
+         reicht die natürliche Gruppenhöhe bis fast an die Box, bleibt die
+         Gruppe oben bündig (topMm = 0), statt nach unten zu rutschen. */
+      const naturalHmm = pxToMm(bottom - top) / zoom;
+      topMm = Math.min(topMm, Math.max(0, pxToMm(roomPx) / zoom - naturalHmm));
       /* Höchstens so hoch wie der Platz bis zur Empfängerbox: `--ghs-top`
          verschiebt die Gruppe nach unten, die Rauten dürfen dabei nicht in
          die Box laufen (Vorschau = Druck, der Wert ist statisch in mm). */
-      const roomPx = rowBox.height - parseFloat(getComputedStyle(row).marginBottom || 0);
       ghs.style.setProperty('--ghs-maxh',
         (pxToMm(roomPx) / zoom - topMm).toFixed(2) + 'mm');
       right.style.setProperty('--ghs-top', topMm.toFixed(3) + 'mm');
@@ -2038,11 +2052,16 @@ select option{background-color:var(--surface);color:var(--ink)}
      Schriften geladen sind). Die echte Empfängerhöhe wird gemessen. */
   const DATA_PAD_MM = 5;
   const RECIPIENT_MIN_MM = 31.5;
-  /* Platz für die GHS-Gruppe (Rautenraster) rechts in der Datenzeile.
-     `--data-w` ist 78 mm breit (so breit wie die Empfängerbox); der Rest steht
-     den Rauten zur Verfügung. Der Wert ist fest (kein Messen), damit Vorschau
-     und Druck dieselbe Rautengröße bekommen. */
-  const GROUP_AVAIL_MM = 44;
+  /* Horizontaler Platz für die GHS-Gruppe (Rautenraster). Die Gruppe liegt
+     rechtsbündig am Etikettenrand; ihre linke Grenze ist der rechte Rand der
+     Empfängerbox. Der freie Bereich dazwischen ist:
+       Etiketteninnenbreite (200 mm = 210 mm - 2 x 5 mm Rand)
+       - Titelspalte (~18 mm) - Empfängerbox (78 mm)  =>  rund 104 mm.
+     Der Wert ist fest (kein Messen), damit Vorschau und Druck dieselbe
+     Rautengröße bekommen. Zwei Rauten von 26 mm + 1,4 mm Abstand (53,4 mm)
+     liegen damit bequem innerhalb der Begrenzung – die feste Kante wird nicht
+     reduziert. */
+  const GROUP_AVAIL_MM = 104;
   const GHS_MIN_CELL_MM = 13;   /* kleinste Rautenkante (Lesbarkeit) */
 
   /* Liest eine mm-Variable (z. B. `--data-gap`) als Zahl in mm. */
@@ -2192,6 +2211,21 @@ select option{background-color:var(--surface);color:var(--ink)}
       el.sheetFit.style.width = PRINT_W_MM + 'mm';
       el.sheetFit.style.height = PRINT_H_MM + 'mm';
     }
+    /* Beim beforeprint ist das Druckmedium noch NICHT aktiv: das zweite
+       Etikett (data-index="1") steht noch auf `display:none` (aus
+       `@media screen`). Würde man es so lassen, überspringen
+       `alignFieldsTop()`/`alignGhsMid()` das untere Etikett (Höhe 0) und
+       setzen dessen --box-top/--fields-room/--ghs-top nie – das untere
+       Etikett wäre im Ausdruck falsch ausgerichtet. Deshalb wird das zweite
+       Etikett hier explizit sichtbar gemacht, DAMIT die Messung greift; die
+       Rücknahme passiert in `clearPrintStyles()`. */
+    if (el.labels) {
+      el.labels.forEach(function (label) {
+        if (label && label.getAttribute('data-index') === '1') {
+          label.style.setProperty('display', 'flex', 'important');
+        }
+      });
+    }
   }
 
   /* Nach dem Druck wieder auf die Bildschirm-Vorschau zurück. */
@@ -2201,6 +2235,15 @@ select option{background-color:var(--surface);color:var(--ink)}
     if (el.sheetFit) {
       el.sheetFit.style.width = '';
       el.sheetFit.style.height = '';
+    }
+    /* Das zweite Etikett wieder verstecken (Bildschirm-Vorschau zeigt nur
+       eines). Ohne Inline-Regel greift wieder `@media screen`. */
+    if (el.labels) {
+      el.labels.forEach(function (label) {
+        if (label && label.getAttribute('data-index') === '1') {
+          label.style.removeProperty('display');
+        }
+      });
     }
   }
 
