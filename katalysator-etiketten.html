@@ -710,8 +710,12 @@ select option{background-color:var(--surface);color:var(--ink)}
    weiße Innenfläche selbst mit und endet exakt an der Kachelkante, dadurch
    gibt es keine durchscheinende Haarlinie zwischen benachbarten Rauten. */
 .ghs--empty{justify-content:flex-start}
-/* Signalwort: fester Rahmen unter den Rauten, darf nicht in die Rauten
-   wachsen (kein Überdecken mehr) */
+/* Signalwort-Rahmen unter den Rauten. Er steht immer, wenn Piktogramme
+   gewählt sind – auch ohne Signalwort, denn GHS-Piktogramme dürfen ohne
+   Signalwort stehen (`ghs--nosignal`, z. B. GHS07/GHS08 bei Einstufungen
+   ohne Signalwort). In diesem Fall bleibt der Rahmen leer; der Platzhalter
+   „kein Signalwort“ steht in kleiner Schrift darin, damit das Etikett nicht
+   wie ein Fehler wirkt. */
 .ghs__signal{
   flex:0 0 auto;
   align-self:center;            /* immer mittig unter den Rauten */
@@ -726,7 +730,9 @@ select option{background-color:var(--surface);color:var(--ink)}
   white-space:nowrap;
   overflow:hidden;
 }
-.ghs__signal[data-word=""]{border-style:dashed;border-width:.5mm}
+/* Ohne Signalwort ist der Rahmen kein „leeres Pflichtfeld“ mehr, sondern
+   bewusst leer: dünnerer Rahmen, kein Warn-Look. */
+.ghs--nosignal .ghs__signal{border-width:.5mm;min-height:9mm}
 .ghs__signal-empty{font-size:2.8mm;font-weight:700;font-style:italic;letter-spacing:.02em;white-space:normal}
 .ghs__empty{flex:0 0 auto;width:44mm;max-width:100%;text-align:center;
   font-size:3.4mm;font-style:italic;line-height:1.25;color:#222;padding:2mm 0}
@@ -872,9 +878,13 @@ select option{background-color:var(--surface);color:var(--ink)}
   margin-left:4px;padding:1px 6px;border-radius:999px;
   font-size:10.5px;font-weight:800;letter-spacing:.04em;
   border:1.2px solid currentColor;
+  display:inline-flex;align-items:center;height:18px;
 }
 .list__word[data-word="Gefahr"]{color:var(--danger)}
 .list__word[data-word="Achtung"]{color:var(--warn)}
+/* Piktogramme ohne Signalwort sind zulässig – der Chip bleibt neutral
+   (statt einer der Signalfarben). */
+.list__word[data-word="kein"]{color:var(--ink-mute);border-style:dashed}
 .list__actions{display:flex;gap:6px;flex:0 0 auto}
 .btn--sm{min-height:30px;width:30px;border-radius:8px}
 .btn--sm svg{width:15px;height:15px;display:block}
@@ -890,6 +900,7 @@ select option{background-color:var(--surface);color:var(--ink)}
 .flag--warn{background:var(--warn-soft);color:var(--warn)}
 .flag--error{background:var(--danger-soft);color:var(--danger)}
 .flag--ok{background:var(--ok-soft);color:var(--ok)}
+.flag--info{background:var(--surface-2);color:var(--ink-mute)}
 
 /* Hinweis-Einblendung */
 .toast{
@@ -1179,11 +1190,12 @@ select option{background-color:var(--surface);color:var(--ink)}
 
         <div class="field">
           <label class="field__label" for="eSignal"><span>Signalwort</span></label>
-          <select class="select" id="eSignal" name="signal">
+          <select class="select" id="eSignal" name="signal" aria-describedby="eSignalHint">
             <option value="">– kein Signalwort –</option>
             <option value="Achtung">Achtung</option>
             <option value="Gefahr">Gefahr</option>
           </select>
+          <span class="field__hint" id="eSignalHint">Nur zusammen mit mindestens einem GHS-Piktogramm.</span>
         </div>
 
         <div class="field" style="margin-bottom:0">
@@ -1207,6 +1219,7 @@ select option{background-color:var(--surface);color:var(--ink)}
 
     <div class="modal__foot">
       <button class="btn btn--primary" id="btnEditorSave" type="button">Speichern</button>
+      <button class="btn" id="btnEditorNew" type="button">Neu</button>
       <button class="btn" id="btnEditorCancel" type="button">Abbrechen</button>
       <span class="spacer"></span>
       <button class="btn btn--danger" id="btnEditorDelete" type="button">Löschen</button>
@@ -1339,7 +1352,16 @@ select option{background-color:var(--surface);color:var(--ink)}
         return GHS_BY_KEY.has(k) && arr.indexOf(k) === i;
       }) : [];
       symbols.sort(function (a, b) { return GHS_ORDER.indexOf(a) - GHS_ORDER.indexOf(b); });
-      out.push({ id: id, name: name, signal: normSignal(raw.signal), symbols: symbols.slice(0, 6) });
+      /* Regel: Piktogramme dürfen ohne Signalwort stehen (nicht jede Einstufung
+         sieht eines vor), ein Signalwort ohne Piktogramm ist unzulässig – es
+         wird beim Normalisieren verworfen. */
+      const list = symbols.slice(0, 6);
+      out.push({
+        id: id,
+        name: name.slice(0, 48),
+        signal: list.length ? normSignal(raw.signal) : '',
+        symbols: list
+      });
     });
     return out.slice(0, 20);
   }
@@ -1637,6 +1659,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     listCount: $('listCount'),
     listEmpty: $('listEmpty'),
     btnEditorSave: $('btnEditorSave'),
+    btnEditorNew: $('btnEditorNew'),
     btnEditorCancel: $('btnEditorCancel'),
     btnEditorDelete: $('btnEditorDelete'),
     toast: $('toast'),
@@ -1688,7 +1711,12 @@ select option{background-color:var(--surface);color:var(--ink)}
 
   /* ------------------------------------------------------------------
      5b) GHS-BLOCK (Rauten-Anordnung + Signalwort)
-     ------------------------------------------------------------------ */
+     ------------------------------------------------------------------
+     Grundsatz (Stammdaten):
+       - Piktogramme dürfen OHNE Signalwort stehen (es gibt Einstufungen mit
+         Piktogramm, aber ohne Signalwort).
+       - Ein Signalwort gibt es NIE ohne Piktogramm (wird beim Speichern
+         abgelehnt bzw. beim Normalisieren verworfen). */
   /* Liefert den Inhalt des GHS-Bereichs (Rauten-Grid + Signalwort) für 1..6
      Piktogramme. Der Container im Etikett (.ghs) bleibt bestehen, nur die
      Variantenklasse wird gesetzt; `cell` ist die Rautenkante in mm. */
@@ -1720,15 +1748,18 @@ select option{background-color:var(--surface);color:var(--ink)}
     }
 
     /* Signalwort erscheint nur, wenn mindestens ein Piktogramm gewählt ist –
-       ohne Piktogramm gibt es auch kein Gefahrwort. */
+       ohne Piktogramm gibt es auch kein Signalwort. Umgekehrt darf ein
+       Piktogramm ohne Signalwort stehen: dann bleibt der Signalwort-Rahmen
+       leer (Platzhaltertext, damit das Etikett nicht „nackt“ wirkt). */
     const word = normSignal(signal);
     const wordBox = n > 0
       ? '<div class="ghs__signal" data-word="' + (word ? esc(word) : '') + '">' +
         (word ? esc(word) : '<span class="ghs__signal-empty">kein Signalwort</span>') + '</div>'
       : '';
 
-    /* Variantenklasse + Rautenkante werden vom Aufrufer am Container gesetzt */
-    return { html: grid + wordBox, variant: sizeClass, cell: cell };
+    /* Variantenklasse + Rautenkante werden vom Aufrufer am Container gesetzt.
+       `signal` sagt, ob ein Signalwort im Etikett steht (für `ghs--nosignal`). */
+    return { html: grid + wordBox, variant: sizeClass, cell: cell, signal: !!word };
   }
 
   /* ------------------------------------------------------------------
@@ -1754,7 +1785,7 @@ select option{background-color:var(--surface);color:var(--ink)}
         const key = node.getAttribute('data-f');
         if (key === 'ghs') {
           node.innerHTML = block.html;
-          node.className = 'ghs ' + block.variant;
+          node.className = 'ghs ' + block.variant + (block.signal ? '' : ' ghs--nosignal');
           node.style.setProperty('--cell', block.cell + 'mm');
         } else if (key === 'title') {
           /* Titel steht fest im Template (zweizeilig) – nicht überschreiben */
@@ -1776,7 +1807,9 @@ select option{background-color:var(--surface);color:var(--ink)}
   /* ------------------------------------------------------------------
      Mittelachse der GHS-Gruppe
      Die Mitte des Etiketts ist (obere Spitze der GHS-Gruppe bis Unterkante
-     Signalwort) / 2. Die GHS-Zelle füllt im Raster beide Zeilen, deshalb
+     Signalwort) / 2. Ohne Signalwort (`ghs--nosignal`) ist der Signalwort-
+     Rahmen bewusst leer und bleibt Teil der Gruppe – die Messung ändert sich
+     dadurch nicht. Die GHS-Zelle füllt im Raster beide Zeilen, deshalb
      wird der Freiraum über der Gruppe (`--ghs-top`) so gesetzt, dass diese
      Mitte exakt auf der Etikettenmitte liegt.
      Die obere Spitze wird gemessen (erste Raute: Rect-Mitte − halbe Höhe),
@@ -2182,6 +2215,19 @@ select option{background-color:var(--surface);color:var(--ink)}
     });
     if (full) setFlag('warn', 'Maximal 6 Piktogramme erreicht.');
     else if (el.entryFlags.querySelector('.flag--warn')) setFlag('', '');
+
+    /* Es gibt Piktogramme ohne Signalwort, aber kein Signalwort ohne
+       Piktogramm: ist die Auswahl leer, wird das Signalwort zurückgesetzt. */
+    if (!n && normSignal(el.eSignal.value)) el.eSignal.value = '';
+
+    /* Rückmeldung: ein blosses Piktogramm ohne Signalwort ist zulässig, wird
+       aber als Hinweis angezeigt (Tippfehler/vergessenes Signalwort). */
+    const sig = normSignal(el.eSignal.value);
+    if (!full && n && !sig) {
+      setFlag('info', 'Piktogramme ohne Signalwort – zulässig, falls die Einstufung kein Signalwort vorsieht.');
+    } else if (!full && el.entryFlags.querySelector('.flag--info')) {
+      setFlag('', '');
+    }
   }
 
   function renderList() {
@@ -2195,7 +2241,9 @@ select option{background-color:var(--surface);color:var(--ink)}
         '<div class="list__main">' +
           '<div class="list__name">' + esc(p.name) + '</div>' +
           '<div class="list__icons">' + icons +
-            (p.signal ? '<span class="list__word" data-word="' + esc(p.signal) + '">' + esc(p.signal) + '</span>' : '') +
+            (p.signal
+              ? '<span class="list__word" data-word="' + esc(p.signal) + '">' + esc(p.signal) + '</span>'
+              : (p.symbols.length ? '<span class="list__word" data-word="kein">kein Signalwort</span>' : '')) +
           '</div>' +
         '</div>' +
         '<div class="list__actions">' +
@@ -2219,6 +2267,12 @@ select option{background-color:var(--surface);color:var(--ink)}
     renderList();
   }
 
+  /* Formular auf „neuer Katalysator“ stellen (leer, ohne geladenen Eintrag) */
+  function newEntry() {
+    loadEntry(null);
+    el.eName.focus();
+  }
+
   function collectEntry() {
     const name = (el.eName.value || '').trim().replace(/\s+/g, ' ');
     if (!name) {
@@ -2227,9 +2281,9 @@ select option{background-color:var(--surface);color:var(--ink)}
       return null;
     }
     const signal = normSignal(el.eSignal.value);
-    if (state.draftSymbols.length && !signal) {
-      setFlag('error', 'Bitte ein Signalwort (Achtung oder Gefahr) wählen – GHS-Piktogramme erfordern ein Signalwort.');
-      el.eSignal.focus();
+    if (signal && !state.draftSymbols.length) {
+      setFlag('error', 'Ein Signalwort ist nur mit mindestens einem GHS-Piktogramm möglich – bitte ein Piktogramm wählen.');
+      el.ePicker.querySelector('.ghs-opt').focus();
       return null;
     }
     const symbols = state.draftSymbols.slice().sort(function (a, b) {
@@ -2242,6 +2296,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     const data = collectEntry();
     if (!data) return;
     if (state.editingId) {
+      /* Nur der ausdrücklich geladene Eintrag wird aktualisiert. */
       const idx = state.profiles.findIndex(function (p) { return p.id === state.editingId; });
       if (idx >= 0) {
         data.id = state.profiles[idx].id;
@@ -2249,8 +2304,9 @@ select option{background-color:var(--surface);color:var(--ink)}
         state.profiles[idx] = data;
         state.form.catalystId = data.id;
       }
-      showToast('~' + data.name + '" aktualisiert.', 'ok');
+      showToast('„' + data.name + '“ aktualisiert.', 'ok');
     } else {
+      /* Neuer Eintrag: darf niemals einen vorhandenen überschreiben. */
       if (state.profiles.length >= 20) {
         setFlag('error', 'Maximal 20 Katalysatoren – bitte zuerst einen Eintrag löschen.');
         return;
@@ -2259,11 +2315,15 @@ select option{background-color:var(--surface);color:var(--ink)}
       data.name = uniqueName(state.profiles, data.name, null);
       state.profiles.push(data);
       state.form.catalystId = data.id;
-      showToast('~' + data.name + '" angelegt.', 'ok');
+      showToast('„' + data.name + '“ angelegt.', 'ok');
     }
     markDirty();
     render();
-    loadEntry(data.id);
+    /* Nach dem Speichern wieder auf „neuer Eintrag“ stellen – sonst würde der
+       nächste Speichervorgang diesen Eintrag überschreiben statt einen neuen
+       anzulegen (früher ließen sich so nur so viele Katalysatoren anlegen,
+       wie vorher schon vorhanden waren). */
+    loadEntry(null);
   }
 
   function deleteEntry(id) {
@@ -2278,7 +2338,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     markDirty();
     render();
     loadEntry(state.editingId);
-    showToast('~' + p.name + '" gelöscht.', 'warn');
+    showToast('„' + p.name + '“ gelöscht.', 'warn');
   }
 
   /* ------------------------------------------------------------------
@@ -2429,7 +2489,14 @@ select option{background-color:var(--surface);color:var(--ink)}
     el.modal.hidden = false;
     el.modal.classList.add('is-open');
     document.body.classList.add('modal-open');
-    loadEntry(state.editingId || (currentProfile() ? currentProfile().id : null));
+    /* Das Formular bleibt im Zustand „Neuer Katalysator“, solange nichts
+       geladen wurde – dadurch legt „Speichern“ auch nach dem Schließen und
+       erneuten Öffnen einen neuen Eintrag an, statt den angezeigten
+       Katalysator zu überschreiben. */
+    if (state.editingId && !state.profiles.some(function (p) { return p.id === state.editingId; })) {
+      state.editingId = null;
+    }
+    loadEntry(state.editingId);
     window.setTimeout(function () { el.eName.focus(); el.eName.select(); }, 30);
   }
   function closeEditor() {
@@ -2521,6 +2588,7 @@ select option{background-color:var(--surface);color:var(--ink)}
   });
 
   el.btnEditorSave.addEventListener('click', saveEntry);
+  el.btnEditorNew.addEventListener('click', newEntry);
   el.eName.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); saveEntry(); }
   });

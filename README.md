@@ -14,6 +14,15 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
    abgelegt; zusätzlich liegt der Stand im `localStorage`.
 4. **Zahnrad** öffnet den Stammdateneditor (Katalysatoren anlegen/ändern/löschen,
    max. 20 Profile, max. 6 GHS-Piktogramme je Profil).
+   * **Speichern** legt im Modus „Neuer Katalysator“ einen **neuen** Eintrag an
+     (auch mehrfach hintereinander) – vorhandene Einträge werden dabei nie
+     überschrieben.
+   * **Neu** leert das Formular für einen weiteren Katalysator.
+   * **Bearbeiten** (Stift in der Liste) lädt den Eintrag ins Formular; nach dem
+     Speichern springt das Formular wieder auf „Neuer Katalysator“.
+   * **Löschen** entfernt den geladenen Eintrag, **Abbrechen** schließt den Editor.
+   * Wird der Editor geschlossen und neu geöffnet, steht das Formular wieder auf
+     „Neuer Katalysator“.
 5. **Drucken**: A4 Hochformat, Skalierung 100 %, Ränder „keine“.
 
 ## Aufbau
@@ -24,6 +33,14 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   untereinander: Etikett 1 bei `top: 0`, Etikett 2 bei `top: 148,5 mm`.
 * Innen: linke Titelspalte (90° gedreht), rechts Datenblock, GHS-Rauten +
   Signalwort, Empfängerbox. 5 mm Rand je Etikett.
+* GHS-Signalwort: **Piktogramme dürfen ohne Signalwort stehen** (es gibt
+  Einstufungen mit Piktogramm, aber ohne Signalwort), **ein Signalwort ohne
+  Piktogramm gibt es nicht**. Der Editor lehnt ein Signalwort ohne Piktogramm
+  beim Speichern ab; wird das letzte Piktogramm abgewählt, leert sich das
+  Signalwort. Im Etikett bleibt der Signalwort-Rahmen bei Piktogrammen ohne
+  Signalwort stehen (`.ghs--nosignal`, dünnerer Rahmen) und enthält den
+  Platzhalter „kein Signalwort“; in der Editorliste erscheint dafür der
+  neutrale Chip „kein Signalwort“.
 * Die Etiketten werden aus `<template id="labelTemplate">` geklont
   (`buildLabels()` im Skript), damit Markup nur einmal gepflegt wird.
 * GHS-Piktogramme sind die **offiziellen UNECE-Vorlagen** (Wikimedia-Commons-
@@ -148,7 +165,7 @@ Reine Entwicklungshilfen – nicht Teil der App, keine Laufzeitabhängigkeit.
 | Skript | Zweck |
 | --- | --- |
 | `ui-check.js` | Screenshots + PDF (1 Seite, A4), DOM-Assertions |
-| `behavior-check.js` | Ablauftests: Selects, Live-Updates, GHS-Limit, Editor, localStorage |
+| `behavior-check.js` | Ablauftests: Selects, Live-Updates, GHS-Limit, Editor (Anlegen ohne Überschreiben, Bearbeiten, Obergrenze 20), localStorage |
 | `print-measure.js` | misst die Druckgeometrie (mm) nach `beforeprint` |
 | `print-media-probe.js`, `print-cdp-probe.js` | Druckmedium per CDP (`Emulation.setEmulatedMedia`) prüfen: Scrollbalken, Blattlage, PDF |
 | `fit-probe.js` | prüft Fensterfüllung/Überlauf (optional `--editor`); Maße `Breite Höhe` |
