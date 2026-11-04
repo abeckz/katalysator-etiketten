@@ -341,14 +341,9 @@ select option{background-color:var(--surface);color:var(--ink)}
 .label[data-index="0"]{left:0;top:0}
 .label[data-index="1"]{left:0;top:148.5mm}
 /* linker Bereich (gut ein Drittel) mit 90 Grad gedrehter Beschriftung */
-.label__lefttext > span{display:block}   /* "Ausbau" / "Katalysator" untereinander */
-/* Titelspalte so schmal wie ihr Inhalt: „Ausbau“/„Katalysator“ stehen
-   zweizeilig (rund 24 mm), dadurch bleibt für den Datenblock mehr Breite.
-   Der Ausbaukatalysator darf die komplette Höhe des Etiketts einnehmen.
-   GLOBAL (für alle Etiketten dieses Projekts): der Titel ist IMMER
-   zweizeilig – „Ausbau“ in der ersten, „Katalysator“ in der zweiten Zeile.
-   Bei langen Katalysatornamen gab es vorher eine dritte Zeile („Kat“/
-   „alysator“); die Spalte wird deshalb nur so hoch wie zwei Zeilen. */
+/* Titel EINZEILIG: „Ausbau Kat“ läuft als ein durchgehender
+   vertikaler Textstrang (kein Umbruch, kein Buchstabenabstand), damit
+   die Spalte so schmal wie möglich bleibt. */
 .label__left{
   flex:0 0 auto;                       /* Breite folgt dem Inhalt */
   /* height:100% wuerde hier um das Padding (5 mm oben/unten) zu hoch werden
@@ -359,22 +354,25 @@ select option{background-color:var(--surface);color:var(--ink)}
   position:relative;
   flex-direction:column;
   padding:0;
-  border-right:.7mm solid #000;        /* vertikaler Trennstrich (etwas dicker) */
+  border-right:2mm solid #525252;      /* vertikaler Trennstrich (dunkelgrau, ~3x breiter) */
   margin-right:5mm;                    /* Abstand Titelspalte -> Datenblock */
 }
 .label__lefttext{
-  writing-mode:vertical-rl;
-  transform:rotate(180deg);            /* 90° nach links, liest von unten nach oben */
-  font-size:11.5mm;
+  /* 90°-Text OHNE transform: writing-mode dreht die Textrichtung, statt die
+     fertig gerenderten Glyphen per CSS-Transformation zu interpolieren.
+     Transform + writing-mode führte im Druck zu unscharfen, minimal schiefen
+     Buchstaben (halbe Pixel) und ließ auch den Trennstrich kippen. */
+  writing-mode:vertical-lr;            /* einzeiliger Strang, liest von unten nach oben (erster Buchstabe unten) */
+  text-orientation:upright;            /* Buchstaben stehen aufrecht (wie bei der 180°-Drehung) */
+  text-rendering:optimizeLegibility;   /* scharfe Glyphen im Druck (kein Subpixel-Blur) */
+  -webkit-font-smoothing:antialiased;
+  font-size:10mm;
   line-height:1.04;
   font-weight:800;
-  letter-spacing:.01em;
-  white-space:nowrap;                  /* IMMER genau zwei Zeilen, nie drei */
+  white-space:nowrap;                  /* EINZEILIG: kein Umbruch, ein vertikaler Strang */
   text-align:center;
   height:auto;                         /* nur so hoch wie der Text */
   max-height:100%;
-  display:flex;align-items:center;justify-content:center;
-  gap:3mm;
 }
 /* rechter Bereich: links die Feldspalte, rechts die GHS-Gruppe, darunter die
    Empfängerbox.
@@ -1057,7 +1055,7 @@ select option{background-color:var(--surface);color:var(--ink)}
     page-break-inside:avoid;
     background:#fff!important;
   }
-  .label__left{border-right:.7mm solid #000!important}
+  .label__left{border-right:2mm solid #525252!important}
   /* nur Inhalt der Etiketten schwaerzen (Rahmenlinien bleiben unveraendert) */
   .label__lefttext,.lrow__v,.ghs__signal,.recipient{color:#000!important}
   *{box-shadow:none!important;text-shadow:none!important;animation:none!important;transition:none!important}
@@ -1172,7 +1170,7 @@ select option{background-color:var(--surface);color:var(--ink)}
   <template id="labelTemplate">
     <article class="label" data-label role="group">
       <div class="label__left">
-        <div class="label__lefttext" data-f="title"><span>Ausbau</span> <span>Katalysator</span></div>
+        <div class="label__lefttext" data-f="title">AUSBAU KAT</div>
       </div>
       <div class="label__right">
         <!-- Datenblock in drei Rasterzeilen: Datenzeile (Feldspalte + GHS-
@@ -1895,7 +1893,7 @@ select option{background-color:var(--surface);color:var(--ink)}
           node.className = 'ghs ' + block.variant + (block.signal ? '' : ' ghs--nosignal');
           node.style.setProperty('--cell', block.cell + 'mm');
         } else if (key === 'title') {
-          /* Titel steht fest im Template (zweizeilig) – nicht überschreiben */
+          /* Titel steht fest im Template (einzeilig) – nicht überschreiben */
           return;
         } else {
           /* nur Werte innerhalb der Felder-Spalte (der Titel ist ebenfalls
