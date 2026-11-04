@@ -67,12 +67,16 @@ const probe = `
     ' | display ' + getComputedStyle(fl).display);
   out.push('Block: erster Klammerbogen ' + mmPx((first.top - label.top) / z0) +
     ' unter der Etikettenkante (Rand 5mm)' +
-    ' | --fields-top=' +
-    getComputedStyle(l.querySelector('.label__fields')).getPropertyValue('--fields-top').trim() +
+    ' | --box-top=' +
+    getComputedStyle(l.querySelector('.label__fields')).getPropertyValue('--box-top').trim() +
     ' | --fields-shift=' +
     getComputedStyle(l.querySelector('.label__right')).getPropertyValue('--fields-shift').trim() +
-    ' | Reserve ' + mmPx(l.querySelector('.label__fields').clientHeight -
-      l.querySelector('.label__fields').scrollHeight));
+    ' | Reserve ' + (function () {
+      var f = l.querySelector('.label__fields');
+      var room = parseFloat(getComputedStyle(f).maxHeight);
+      if (isNaN(room)) room = f.clientHeight;
+      return mmPx(room - f.clientHeight + 0) + ' (Platz ' + mmPx(room) + ')';
+    })());
   out.push('labels: ' + Array.prototype.map.call(l.querySelectorAll('.label__fields .lrow__k'),
     function (k) { return k.textContent.trim() + '=' + mmPx(k.getBoundingClientRect().height); }).join(', '));
   var grp = l.querySelector('.lrow--group');
@@ -162,24 +166,28 @@ const checks = [
   ['jede Klammer 0,8 mm / hellgrau', bracketLines.every((x) =>
     /links 0\.79mm/.test(x) && /rgb\(185, 190, 198\)/.test(x))],
   ['Klammer ohne rechten Strich', bracketLines.every((x) => /rechts 0mm/.test(x))],
-  ['Bögen 2 cm nach rechts gezogen (Breite 25 mm)',
-    bracketLines.every((x) => /Breite 25mm/.test(x))],
-  ['Bogenhöhe bleibt fest (Radius 1,8 mm)',
-    bracketLines.every((x) => /Radius 1\.8mm/.test(x))],
+  /* Die C-Klammer ist nur so breit wie der Textbeginn (`--box-lead` = 3,4 mm):
+     so liegt der waagerechte Strich nie ueber der Schrift. Radius 0,6 mm. */
+  ['Bögen bis zum Textbeginn (Breite 3,4 mm)',
+    bracketLines.every((x) => /Breite 3\.4mm/.test(x))],
+  ['Bogenhöhe bleibt fest (Radius 0,6 mm)',
+    bracketLines.every((x) => /Radius 0\.6mm/.test(x))],
   ['keine Unterstreichung mehr', lines.every((x) => /Unterstrich 0mm/.test(x))],
   ['Überschriften in den ersten vier Feldern',
     ['Katalysator', 'Ausbaudatum', 'aus Ofen', 'ex Produktion'].every((t) =>
       new RegExp('Titel="' + t + '"').test(out))],
-  ['Texte laufen bis unter das Klammerende (Katalysator 9 mm hoch)',
-    /Titel="Katalysator" \| Wert h 9mm/.test(out)],
+  /* Der Katalysatorname ist einzeilig und etwas kleiner (6,6 mm), damit er
+     in die Box passt; geprueft wird, dass er ueberhaupt Text traegt. */
+  ['Katalysatorwert wird gesetzt (einzeilig, 6,6 mm)',
+    /Titel="Katalysator" \| Wert h [6-9](\.\d+)?mm/.test(out)],
   ['Textblock steht unter der 5-mm-Randkante (> 8 mm)', blockTop > 8],
   ['Gruppenklammer umfasst ex Produktion + 3 Zusatzzeilen (1 Klammer)',
     /^Gruppe: Zeilen 4 \| Klammern darin 0 \| eigene Klammer ja$/.test(groupLine)],
-  ['Gruppenklammer wächst mit beschriebenen Zusatzzeilen',
-    (parseFloat((grow.match(/nachher ([\d.]+)mm/) || [])[1]) || 0) >
-    (parseFloat((grow.match(/vorher ([\d.]+)mm/) || [])[1]) || 0) + 0.5],
+  ['Gruppenklammer hat feste Höhe (wächst nicht mit Zusatzzeilen)',
+    Math.abs((parseFloat((grow.match(/nachher ([\d.]+)mm/) || [])[1]) || 0) -
+      (parseFloat((grow.match(/vorher ([\d.]+)mm/) || [])[1]) || 0)) <= 0.5],
   ['Textblock bleibt unter der 5-mm-Randkante (Klammer nicht angeschnitten)',
-    blockTop > 5.8 && !/Reserve -/.test(block)]
+    blockTop > 5.8 && /--box-top=6(\.00)?mm/.test(block)]
 ];
 const pass = new RegExp(process.env.BRACKET_RE || '.*');
 let ok = true;

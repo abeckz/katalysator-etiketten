@@ -70,55 +70,52 @@ DIN-A5-Etiketten „Ausbau Katalysator“ auf einem A4-Blatt (Avery 3655).
   Ausbaudatum, aus Ofen, ex Produktion sowie die drei Zusatzzeilen 1–3 ohne
   eigene Überschrift);
   Signalwort und Piktogramme stehen ausschließlich im fertigen Etikett.
-* Jede Zeile der Feldspalte (Katalysator, Ausbaudatum, aus Ofen sowie die
-  Gruppe „ex Produktion“ + Zusatzzeilen) ist links mit einer **C-förmigen,
-  hellgrauen Klammer** eingefasst (`.lrow::before`, 0,8 mm Strich, Bögen nur
-  rund 2 mm nach rechts, feste Bogenhöhe). Die Klammer schließt Überschrift
-  **und** Wert ein – so ist auf einen Blick erkennbar, was zusammengehört.
-  Unterstreichungen unter den Werten gibt es nicht mehr.
+* **Textteil = unsichtbare Box mit absoluten Maßen.** Der ganze Textteil
+  (Katalysator, Ausbaudatum, aus Ofen, Gruppe „ex Produktion“ + Zusatzzeilen)
+  liegt in einer Box mit festen mm-Werten; sichtbar ist nur die Schrift:
+  `--box-h` (Blockhöhe 14,3 mm), `--box-gap` (Luft 2,4 mm),
+  `--box-w` (Klammerbreite 78 mm = Breite der Empfängerbox),
+  `--box-lead` (Textbeginn 3,4 mm ab Strich) und `--box-bracket`
+  (Bogenradius 0,6 mm). Die Gruppenhöhe ist `3 × --box-h + 2 × --box-gap`
+  (47,7 mm). Weil alles in mm steht, ist die Geometrie zoom- und
+  inhaltsunabhängig – Vorschau und Druck sind zwangsläufig gleich.
+* Jede Zeile ist links mit einer **C-Klammer** eingefasst (0,8 mm, hellgrau):
+  durchgehender Strich links, oben/unten je ein Bogen bis zum Textbeginn
+  (`--box-lead`), am rechten Boxrand ein gespiegelter Bogen. Der waagerechte
+  Strich reicht nie über den Textbeginn hinaus – **keine Linie läuft durch
+  Text**. Unterstreichungen gibt es nicht.
 * Unter „ex Produktion“ stehen drei Freitext-Zeilen (`.lrow__v` mit
-  `data-f="extra1…extra3"`). Sie werden über die drei Felder „Zusatzzeile 1–3“
-  im Panel befüllt und erscheinen identisch auf beiden Etiketten. Die drei
-  Felder haben bewusst **keine sichtbare Überschrift** (nur `aria-label` für
-  Screenreader). Im Etikett haben die Zeilen weder Beschriftung noch
-  Unterstrich und auch keinen Platzhaltertext („Zeile 1–3“ wurde entfernt) –
-  leere Zeilen bleiben leer, Bildschirm und Druck sind dadurch identisch.
+  `data-f="extra1…extra3"`), befüllt über die drei Felder „Zusatzzeile 1–3“
+  im Panel (ohne sichtbare Überschrift, nur `aria-label`). Im Etikett haben
+  sie weder Beschriftung noch Unterstrich und keinen Platzhaltertext – leere
+  Zeilen bleiben leer, Bildschirm und Druck sind identisch.
 * „ex Produktion“ und die drei Zusatzzeilen bilden **eine** gemeinsame
-  Klammer (`.lrow--group`); die eingerückten Zeilen darin haben keine eigene
-  Klammer. Die Gruppe ist eine Flex-Spalte: jede Zusatzzeile ist leer 11,4 mm
-  hoch (Schreibplatz) und 13,8 mm, sobald Text darin steht
-  (`.lrow--extra:has(> .lrow__v:not(:empty))`). Die Klammer wächst dadurch
-  sichtbar mit dem Inhalt, die GHS-Gruppe bleibt davon unberührt.
-* Der Gruppencontainer hat links **keine** eigene Polsterung – der 5,6-mm-
-  Vorsprung kommt von der inneren Zeile (`.lrow--row`) bzw. von
-  `.lrow--extra`. Dadurch stehen „ex Produktion“ und die Zusatzzeilen exakt
-  bündig unter „aus Ofen“ (vorher rutschte der Block um 5,6 mm nach rechts).
-  `node .build/gap-check.js` prüft das („Feldspalte bündig in x“).
-* Der Zeilenabstand **innerhalb** der Gruppe ist gleichmäßig: „ex Produktion“
-  trägt unten `padding-bottom:6.9mm`, die Zusatzzeilen haben `margin-top:0`
-  und ihre Höhe (leer 13,4 mm, gefüllt 15,5 mm) enthält dieselbe Luft. Vorher
-  saß zwischen Wert und erster Zusatzzeile mehr Abstand als zwischen den
-  Zusatzzeilen, weil deren Kastenhöhe die Textzeile überragte.
-  `node .build/fill-measure.js` misst das („Zeilenabstaende … | Streuung …“).
-* Die Gruppenklammer liegt mit `left:0` am linken Rand der Gruppenbox –
-  ein negativer Wert würde den Strich aus dem Kasten schieben, wo ihn
-  `.label__fields{overflow:hidden}` abschneidet. Die Bögen bleiben frei, weil
-  `::before` um 0,9 mm nach oben/unten aufgeweitet ist
-  (`margin-top/-bottom:-.9mm`) und die Gruppe selbst **kein**
-  `overflow:hidden/clip` trägt.
-* Die Feldspalte beginnt oben (`justify-content:flex-start`, `--fields-top`
-  = 6 mm); die GHS-Gruppe wird über `--fields-shift` in die Etikettenmitte
-  gerückt. Reicht der Platz mit allen drei Zusatzzeilen nicht (kurzes
-  Etikett), verkleinert `alignFieldsTop()` zuerst den Zeilenabstand bis
-  `FIELDS_GAP_MIN_MM` und staucht danach die Gruppenklammer – Untergrenze ist
-  `GROUP_MIN_MM` = natürliche Höhe minus Zeilenabstand plus Mindestabstand,
-  damit zum oberen Bogen und zur Empfängerbox rund 2,2 mm Luft bleiben.
-  Gemessen wird über die Kinder, nicht über `scrollHeight`: `.label__fields`
-  hat `overflow:hidden` und meldet sonst immer `scrollHeight == clientHeight`.
-* Ist danach Platz übrig, verteilt `alignFieldsTop()` ihn gleichmäßig auf die
-  Abstände der Feldspalte (gedeckelt bei `FIELDS_GAP_MAX_MM` = 6 mm). Vorher
-  sammelte sich die ganze Restluft als eine große Lücke zwischen
-  Gruppenklammer und Empfängerbox.
+  Klammer (`.lrow--group`); die Zeilen darin haben keine eigene. Die Gruppe
+  hat eine **feste** Höhe (`--group-h`) und wächst nicht mit beschriebenen
+  Zusatzzeilen.
+* Oberer Versatz: `--box-top` (= `BOX_TOP_MM`, 6 mm) sitzt als `padding-top`
+  **am Block** (`.label__fields`). Er wird nur verkleinert, wenn oben kein
+  Platz mehr ist – die Blöcke bleiben dann vollständig sichtbar.
+* Der Rahmen der Box ist `--fields-room` (→ `max-height`). Er gilt **ab der
+  Box-Oberkante** und enthält damit den oberen Versatz: `--fields-room` =
+  `--box-top` + Summe der Blockhöhen + `--box-gap` × Anzahl Abstände.
+  Was nicht passt, wird mit `overflow:hidden` unten gekappt (nie gestaucht).
+* `alignFieldsTop()` setzt genau zwei Werte, beide aus festen mm:
+  `--box-top` (6 mm, bei Platznot kleiner) und daraus `--fields-room`.
+  Der Platz dafür kommt aus der Etikettentiefe abzüglich 5-mm-Rand,
+  Empfängerbox (`--recipient-h`, fest 31,5 mm) und `--data-gap` (2,4 mm).
+  Es gibt **keine Rückkopplung** mehr zwischen Blockhöhe und Rahmen.
+* Die Empfängerbox sitzt unten im Etikettenraum (`align-self:end` +
+  `margin-top:auto`). Das Raster von `.label__right` hat **zwei** Zeilen
+  (`auto minmax(0, 1fr)`): Datenzeile oben, Empfängerbox im Rest. Drei Zeilen
+  bei zwei Kindern schoben die Box in eine leere Mittelzeile aus dem Etikett.
+* `.label__left` und `.label__right` haben **kein** `height:100%` – mit dem
+  5-mm-Rand wurde das Etikett dadurch höher als 148,5 mm; die Höhe kommt jetzt
+  über `align-self:stretch` vom Etikett.
+* Gemessen wird in CSS-Pixeln (`offsetHeight`, `clientHeight`) und in mm aus
+  `getBoundingClientRect() / zoom` – der Vorschau-Zoom wird immer
+  herausgerechnet. `scrollHeight` taugt für `.label__fields` nicht
+  (`overflow:hidden` ⇒ `scrollHeight == clientHeight`).
 * Am Bildschirm zeigt die Vorschau **ein** Etikett (`@media screen` blendet
   `label[data-index="1"]` aus); gedruckt werden weiterhin **beide**.
 

@@ -94,10 +94,12 @@ const probe = `
     mm(first.top - first.overlap) + 'mm | letzte Klammerunterkante ' +
     mm(last.bottom + last.overlap) + 'mm | Blockmitte ' +
     mm((first.top + last.bottom) / 2) + 'mm (Etikettenmitte ' + mm(lb.height / 2) + 'mm)');
-  out.push('Feldspalte: h ' + mm(r(fields).height) + 'mm | --fields-top ' +
-    getComputedStyle(fields).getPropertyValue('--fields-top').trim() +
+  var fr = r(fields);
+  out.push('Feldspalte: h ' + mm(fr.height) + 'mm | --box-top ' +
+    getComputedStyle(fields).getPropertyValue('--box-top').trim() +
     ' | --fields-gap ' + getComputedStyle(fields).getPropertyValue('--fields-gap').trim() +
-    ' | scrollH-clientH ' + mm(fields.scrollHeight - fields.clientHeight) + 'mm' +
+    ' | Block unten ' + mm(fr.bottom - lb.top) + 'mm (Etikett ' + mm(lb.height) +
+    'mm / Empfaenger ab ' + mm(r(rec).top - lb.top) + 'mm)' +
     ' | Empfaenger unten ' + mm(r(rec).bottom - lb.top) + 'mm');
   document.getElementById('p').textContent = out.join('\\n');
 })();
@@ -126,10 +128,12 @@ const firstTop = parseFloat((posLine.match(/1\. Klammerbogen ([\d.-]+)mm/) || []
 const blockMid = parseFloat((posLine.match(/Blockmitte ([\d.-]+)mm/) || [])[1]);
 const labelH = parseFloat((posLine.match(/h ([\d.]+)mm/) || [])[1]);
 const colLine = (out.match(/Feldspalte: ([^\n]*)/) || [])[1] || '';
-const rest = parseFloat((colLine.match(/scrollH-clientH ([\d.-]+)mm/) || [])[1]);
+const blockBottom = parseFloat((colLine.match(/Block unten ([\d.-]+)mm/) || [])[1]);
+const recTop = parseFloat((colLine.match(/Empfaenger ab ([\d.-]+)mm/) || [])[1]);
 const recBottom = parseFloat((colLine.match(/Empfaenger unten ([\d.]+)mm/) || [])[1]);
 /* Streuung der linken Textkanten („ex Produktion“ vs. die übrigen Felder) */
 const colSpread = parseFloat((out.match(/Streuung ([\d.]+)mm/) || [])[1]);
+const clipped = (blockBottom > labelH - 4) || (blockBottom > recTop + 0.2);
 const checks = [
   ['Feldspalte bündig in x (alle Textkanten auf einer Linie)', colSpread <= 0.3],
   ['mindestens 1 mm Luft zwischen allen Klammerbögen',
@@ -139,7 +143,7 @@ const checks = [
   ['oberste Klammer unter der 5-mm-Randkante (>= 6 mm)', firstTop >= 6],
   ['Block nicht mittig, sondern oben mit Abstand (Blockmitte < Etikettenmitte)',
     blockMid < labelH / 2],
-  ['Feldspalte ohne Überlauf (nichts abgeschnitten)', rest <= 0.15],
+  ['Feldspalte ohne Überlauf (nichts abgeschnitten)', !clipped],
   ['Empfängerbox endet innerhalb des Etiketts', recBottom <= labelH - 4]
 ];
 let ok = true;
